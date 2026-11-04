@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lista prezentów</title>
+<meta name="robots" content="noindex">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎁</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="kicker" id="occasion"></div>
+    <h1 id="title">Lista prezentów</h1>
+    <p class="lead">Wybierz coś z listy i kliknij „Rezerwuję”. Inni zobaczą, że ta pozycja jest już zajęta, więc nikt nie kupi tego samego. Nie potrzebujesz żadnego konta.</p>
+    <div class="summary" id="summary"></div>
+  </header>
+  <div id="notice"></div>
+  <ul class="list" id="list"><li class="empty">Ładuję listę…</li></ul>
+  <footer>
+    <p id="footer-text"></p>
+    <button type="button" class="link-btn" id="surprise-toggle"></button>
+  </footer>
+</div>
+<script src="config.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
