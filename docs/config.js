@@ -8,5 +8,5 @@ window.GIFT_CONFIG = {
   occasion: "Boże Narodzenie 2026",
   // Adres wdrożonego Google Apps Script (kończy się na /exec).
   // Zostaw pusty, żeby uruchomić tryb demo (dane tylko w Twojej przeglądarce).
-  apiUrl: ""
+  apiUrl: "https://script.google.com/macros/s/AKfycbyA6W5XQH1PJ1OJVd0bneBrsmfsp0QNA2uFwysnDNbDAyN28mGaSC7io81_drorKnJhGw/exec"
 };
