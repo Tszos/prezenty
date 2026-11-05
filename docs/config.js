@@ -17,12 +17,12 @@ window.GIFT_CONFIG = {
     ania: {
       name: "Ania",
       nameGen: "Ani",
-      apiUrl: ""
+      apiUrl: "https://script.google.com/macros/s/AKfycby9f2SlGQaxQ5f0-iFEslZT216jcQCVcXx6qn8DtQixA5fofcBFz8Q4gdboMroAzDxD/exec"
     },
     mikolaj: {
       name: "Mikołaj",
       nameGen: "Mikołaja",
-      apiUrl: ""
+      apiUrl: "https://script.google.com/macros/s/AKfycby_oR-PiLL9PeSCLiTdUntDjhGsXZExgVJBPp5P5UEl3N79LepIrNadrjpjtep1O3CQ/exec"
     }
   }
 };
