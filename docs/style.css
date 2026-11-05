@@ -1,4 +1,4 @@
-/* "Pierwsza gwiazdka": nocne niebo z jedną złotą gwiazdą u góry, spokojna lista poniżej. */
+/* Granatowy nagłówek ze złotą ikoną prezentu, spokojna lista poniżej. Bez motywu konkretnego święta. */
 :root {
   --page: #eef1f6;
   --surface: #ffffff;
@@ -49,11 +49,6 @@ body {
 /* ---------- nagłówek: nocne niebo ---------- */
 .hero {
   background:
-    radial-gradient(1.5px 1.5px at 12% 22%, rgba(255,255,255,.7) 50%, transparent 51%),
-    radial-gradient(1px 1px at 28% 70%, rgba(255,255,255,.5) 50%, transparent 51%),
-    radial-gradient(1.5px 1.5px at 64% 18%, rgba(255,255,255,.55) 50%, transparent 51%),
-    radial-gradient(1px 1px at 83% 54%, rgba(255,255,255,.5) 50%, transparent 51%),
-    radial-gradient(1px 1px at 92% 14%, rgba(255,255,255,.6) 50%, transparent 51%),
     radial-gradient(120% 90% at 85% -10%, #26336b 0%, transparent 60%),
     var(--night);
   color: var(--night-ink);
@@ -64,7 +59,7 @@ body {
   display: flex; align-items: center; gap: 12px;
   margin: 0 0 14px; color: var(--gold); font-weight: 600; font-size: 16px;
 }
-.star { width: 46px; height: 46px; fill: var(--gold); flex: none; filter: drop-shadow(0 0 10px rgba(233, 196, 106, .55)); }
+.mark { width: 44px; height: 44px; fill: var(--gold); flex: none; filter: drop-shadow(0 0 10px rgba(233, 196, 106, .55)); }
 h1 {
   font-family: var(--font-display); font-weight: 400;
   font-size: clamp(40px, 10vw, 68px); line-height: 1.02; letter-spacing: -.01em;
@@ -173,13 +168,13 @@ button:disabled { opacity: .55; cursor: progress; }
 .link-btn { background: none; border: 0; padding: 6px 8px; min-height: 0; color: var(--muted); font-size: 14px; font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
 .link-btn:hover { color: var(--ink); }
 
-/* ---------- jedyny ruch bez kliknięcia: gwiazdka zapala się przy wejściu ---------- */
+/* ---------- jedyny ruch bez kliknięcia: ikona prezentu pojawia się przy wejściu ---------- */
 @media (prefers-reduced-motion: no-preference) {
-  .star { animation: first-star 1.4s cubic-bezier(.2, .8, .2, 1) both; }
-  @keyframes first-star {
-    0% { opacity: 0; transform: scale(.4) rotate(-45deg); filter: drop-shadow(0 0 0 rgba(233,196,106,0)); }
-    60% { opacity: 1; transform: scale(1.12) rotate(4deg); filter: drop-shadow(0 0 22px rgba(233,196,106,.9)); }
-    100% { transform: scale(1) rotate(0); filter: drop-shadow(0 0 10px rgba(233,196,106,.55)); }
+  .mark { animation: mark-in 1.2s cubic-bezier(.2, .8, .2, 1) both; }
+  @keyframes mark-in {
+    0% { opacity: 0; transform: translateY(8px) scale(.7); }
+    60% { opacity: 1; transform: translateY(-2px) scale(1.08); }
+    100% { transform: none; }
   }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -251,8 +246,8 @@ textarea.input { resize: vertical; min-height: 64px; }
 .pick-opt input:focus-visible + label { outline: 3px solid var(--focus); outline-offset: 3px; }
 .btn-wide { width: 100%; min-height: 50px; font-size: 16px; }
 .btn-link { display: inline-flex; align-items: center; justify-content: center; text-decoration: none; border-radius: 10px; padding: 9px 16px; font-weight: 700; font-size: 15px; min-height: 42px; }
-.done { border-left: 4px solid var(--pine); }
-.done .panel-title { color: var(--pine); }
+.panel.done { border-left: 4px solid var(--pine); }
+.panel.done .panel-title { color: var(--pine); }
 .done-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
 .settings { padding: 0; }
 .settings > summary { cursor: pointer; padding: 16px 20px; font-weight: 600; border-radius: 18px; }
@@ -291,3 +286,6 @@ textarea.input { resize: vertical; min-height: 64px; }
 .confirm-actions { display: flex; gap: 8px; }
 .btn-danger { background: var(--berry); color: var(--btn-ink); }
 .ok-note { color: var(--pine); font-weight: 600; margin: 0; }
+.owner { grid-column: 1 / -1; }
+.owner .link-btn { padding: 4px 0; }
+.owner.confirm { margin-top: 6px; }

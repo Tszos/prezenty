@@ -68,7 +68,7 @@
         items: [
           { id: "a1", title: "Kubek termiczny", desc: "Najlepiej zielony, ok. 450 ml", price: "ok. 120 zł", shop: "Allegro", url: "https://allegro.pl" },
           { id: "a2", title: "Książka „Projekt Hail Mary”", desc: "Andy Weir, wydanie w twardej oprawie", price: "ok. 55 zł", shop: "Empik", url: "https://www.empik.com" },
-          { id: "a3", title: "Skarpetki w renifery", desc: "Rozmiar 43–46", price: "ok. 30 zł", shop: "", url: "" },
+          { id: "a3", title: "Skarpetki w lisy", desc: "Rozmiar 43–46", price: "ok. 30 zł", shop: "", url: "" },
           { id: "a4", title: "Słuchawki bezprzewodowe", desc: "Nauszne, z redukcją szumów", price: "ok. 350–420 zł", shop: "Media Expert", url: "https://www.mediaexpert.pl" },
           { id: "a5", title: "Ekspres przelewowy", desc: "Z termosem zamiast szklanego dzbanka", price: "ok. 950–1150 zł", shop: "", url: "https://www.ceneo.pl" },
           { id: "a6", title: "Gra planszowa „Wsiąść do pociągu: Europa”", desc: "", price: "ok. 100 zł", shop: "Rebel", url: "https://www.rebel.pl" },
@@ -92,7 +92,11 @@
       },
       post: function (b) {
         var d = load(), c = d.claims[b.id];
-        if (b.action === "claim") {
+        if (b.action === "remove") {
+          if (b.key !== "demo") return later({ ok: false, error: "bad_key" });
+          d.items = d.items.filter(function (it) { return it.id !== b.id; });
+          delete d.claims[b.id];
+        } else if (b.action === "claim") {
           if (c && c.token !== TOKEN) return later({ ok: false, error: "taken" });
           d.claims[b.id] = { name: b.name, token: TOKEN };
         } else if (b.action === "unclaim") {
@@ -168,6 +172,10 @@
       if (sel && target.setSelectionRange) try { target.setSelectionRange(sel[0], sel[1]); } catch (e) {}
     }
     S.justClaimed = null;
+    if (S.focusConfirm) {
+      S.focusConfirm = false;
+      var ok = document.getElementById("rmok-" + S.confirmRemove); if (ok) ok.focus({ preventScroll: true });
+    }
   }
 
   function renderSummary() {
@@ -291,8 +299,48 @@
         ])
       ]),
       act.childNodes.length ? act : null,
-      form
+      form,
+      ownerRow(it, title)
     ]);
+  }
+
+  // Klucz tej listy z aplikacji „Dodaj prezent” (ta sama przeglądarka) pozwala usuwać prezenty.
+  function adminKey() { return (lsJson("gift-admin-keys") || {})[PERSON] || ""; }
+
+  function ownerRow(it, title) {
+    if (!adminKey()) return null;
+    var busy = !!S.busy["rm:" + it.id];
+    if (S.confirmRemove !== it.id) {
+      return el("div", { class: "owner" }, [
+        el("button", { class: "link-btn", type: "button", "data-focus": "rm:" + it.id, "aria-label": "Usuń z listy: " + title, text: "Usuń z listy",
+          onclick: function () { S.confirmRemove = it.id; S.focusConfirm = true; render(); } })
+      ]);
+    }
+    return el("div", { class: "owner confirm", role: "alert" }, [
+      el("p", { text: "Usunąć ten prezent z listy? Jeśli ktoś go zarezerwował, rezerwacja też zniknie." }),
+      el("div", { class: "confirm-actions" }, [
+        el("button", { class: "btn-danger", type: "button", id: "rmok-" + it.id, "data-focus": "rmok:" + it.id, disabled: busy,
+          text: busy ? "Usuwam…" : "Usuń", onclick: function () { removeGift(it.id); } }),
+        el("button", { class: "btn-ghost", type: "button", disabled: busy, text: "Anuluj",
+          onclick: function () { S.confirmRemove = null; render(); var b = document.querySelector('[data-focus="rm:' + it.id + '"]'); if (b) b.focus(); } })
+      ])
+    ]);
+  }
+
+  function removeGift(id) {
+    var k = "rm:" + id;
+    if (S.busy[k]) return;
+    S.busy[k] = true; render();
+    api.post({ action: "remove", id: id, key: adminKey() }).then(function (r) {
+      if (!r || !r.ok) S.error = r && r.error === "bad_key"
+        ? "Klucz tej listy nie pasuje. Wklej go ponownie w aplikacji „Dodaj prezent”."
+        : "Nie udało się usunąć prezentu. Spróbuj ponownie.";
+    }).catch(function () {
+      S.error = "Nie udało się usunąć prezentu. Sprawdź połączenie i spróbuj ponownie.";
+    }).then(function () {
+      S.busy[k] = false; S.confirmRemove = null;
+      return refresh();
+    });
   }
 
   // ---------- akcje ----------
@@ -363,8 +411,8 @@
 
   // Odświeżaj co jakiś czas i po powrocie do karty. Gdy formularz jest otwarty, czekamy,
   // żeby nie przebudowywać pola w trakcie pisania (render i tak zachowuje wpisany tekst).
-  setInterval(function () { if (!document.hidden && !S.openClaim) refresh(); }, POLL_MS);
-  document.addEventListener("visibilitychange", function () { if (!document.hidden && !S.openClaim) refresh(); });
+  setInterval(function () { if (!document.hidden && !S.openClaim && !S.confirmRemove) refresh(); }, POLL_MS);
+  document.addEventListener("visibilitychange", function () { if (!document.hidden && !S.openClaim && !S.confirmRemove) refresh(); });
 
   render();
   refresh();

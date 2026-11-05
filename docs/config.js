@@ -1,7 +1,7 @@
 // Ustawienia list prezentów — tylko ten plik musisz edytować.
 window.GIFT_CONFIG = {
-  // Nadtytuł nad nagłówkiem.
-  occasion: "Boże Narodzenie 2026",
+  // Opcjonalny nadtytuł nad nagłówkiem, np. „Urodziny 2027”. Pusty = tylko ikona prezentu.
+  occasion: "",
 
   // Jedna pozycja na osobę. Klucz to nazwa folderu w docs/ (np. docs/ania/index.html),
   // a kolejność tutaj to kolejność na stronie wyboru.
