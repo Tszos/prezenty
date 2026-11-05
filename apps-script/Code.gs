@@ -41,7 +41,7 @@ function doPost(e) {
   var body;
   try { body = JSON.parse(e.postData.contents); } catch (err) { return json({ ok: false, error: 'bad_request' }); }
   var token = String(body.token || '');
-  if (token.length < 16 || token.length > 64) return json({ ok: false, error: 'bad_token' });
+  if (!/^[0-9a-f]{16,64}$/i.test(token)) return json({ ok: false, error: 'bad_token' });
   var id = String(body.id || '');
 
   return withLock(function () {
@@ -59,6 +59,11 @@ function withLock(fn) {
   try { return json(fn()); }
   catch (err) { return json({ ok: false, error: 'server', detail: String(err) }); }
   finally { lock.releaseLock(); }
+}
+
+/** Wpis zaczynający się od = + - @ arkusz potraktowałby jak formułę; apostrof wymusza zwykły tekst. */
+function sheetSafe(s) {
+  return /^[=+\-@\t\r]/.test(s) ? "'" + s : s;
 }
 
 function json(obj) {
@@ -121,7 +126,7 @@ function list(token) {
 function claim(id, name, token) {
   var exists = readItems().some(function (it) { return it.id === id; });
   if (!exists) return { ok: false, error: 'not_found' };
-  name = name.trim().slice(0, 40);
+  name = sheetSafe(name.trim().slice(0, 40));
   var existing = readClaims().filter(function (c) { return c.id === id; })[0];
   if (existing) {
     if (existing.token !== token) return { ok: false, error: 'taken' };
