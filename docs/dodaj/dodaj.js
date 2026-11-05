@@ -19,7 +19,9 @@
     preview: "",          // "", "loading", "done", "none"
     busy: false, error: "", done: null, notice: "",
     shared: false,        // otwarte z menu Udostępnij: pokazujemy szybkie przyciski list
-    editing: false        // „Popraw przed dodaniem”
+    editing: false,       // „Popraw przed dodaniem”
+    tab: "add",           // "add" albo "remove"
+    r: { person: "", items: null, loading: false, confirm: null, busy: false, error: "", notice: "" }
   };
 
   // ---------- pomocnicze ----------
@@ -66,12 +68,18 @@
     return {
       check: function (key) { return getJson(url, { action: "check", key: key }); },
       preview: function (key, u, t) { return getJson(url, { action: "preview", key: key, url: u, title: t || "" }); },
+      list: function () { return getJson(url, {}); },
+      remove: function (key, id) { return postJson(url, { action: "remove", key: key, id: id }); },
       add: function (key, item) {
         item.action = "add"; item.key = key;
         return fetch(url, { method: "POST", redirect: "follow", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify(item) })
           .then(function (r) { return r.json(); });
       }
     };
+  }
+  function postJson(url, body) {
+    return fetch(url, { method: "POST", redirect: "follow", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify(body) })
+      .then(function (r) { return r.json(); });
   }
   function getJson(url, params) {
     var q = Object.keys(params).map(function (k) { return k + "=" + encodeURIComponent(params[k]); }).join("&");
@@ -80,13 +88,24 @@
   // Tryb demo (pusty apiUrl): klucz „demo”, prezenty trafiają do danych demo listy w tej przeglądarce.
   function demoApi(k) {
     function later(v) { return new Promise(function (res) { setTimeout(function () { res(v); }, 300); }); }
+    var lsKey = k === "tomek" ? "gift-demo-v2" : "gift-demo-v2:" + k;
+    function demoData() { try { var d = JSON.parse(lsGet(lsKey)); return d && d.items ? d : null; } catch (e) { return null; } }
     return {
+      list: function () { var d = demoData(); return later({ ok: true, items: d ? d.items : [], claims: {} }); },
+      remove: function (key, id) {
+        if (key !== "demo") return later({ ok: false, error: "bad_key" });
+        var d = demoData();
+        if (!d) return later({ ok: false, error: "not_found" });
+        d.items = d.items.filter(function (it) { return it.id !== id; });
+        delete d.claims[id];
+        lsSet(lsKey, JSON.stringify(d));
+        return later({ ok: true });
+      },
       check: function (key) { return later({ ok: key === "demo" }); },
       preview: function () { return later({ ok: true, title: "", price: "", shop: "" }); },
       add: function (key, item) {
         if (key !== "demo") return later({ ok: false, error: "bad_key" });
-        var lsKey = k === "tomek" ? "gift-demo-v2" : "gift-demo-v2:" + k, d;
-        try { d = JSON.parse(lsGet(lsKey)); } catch (e) {}
+        var d = demoData();
         if (d && d.items) {
           d.items.push({ id: "n" + Date.now(), title: item.title, desc: item.desc, price: item.price, shop: item.shop, url: item.url });
           lsSet(lsKey, JSON.stringify(d));
@@ -157,7 +176,10 @@
     if (S.done) view.appendChild(doneView());
     else if (!people.length) view.appendChild(setupIntro());
     else if (S.shared && !S.editing) view.appendChild(quickView(people));
-    else view.appendChild(formView(people));
+    else {
+      view.appendChild(tabsView());
+      view.appendChild(S.tab === "remove" ? removeView(people) : formView(people));
+    }
     view.appendChild(settingsView());
   }
 
@@ -179,6 +201,83 @@
       el("label", { for: id, text: label }), input,
       hint ? el("p", { class: "hint", text: hint }) : null
     ]);
+  }
+
+  function tabsView() {
+    function tab(id, label) {
+      return el("button", { type: "button", class: "tab" + (S.tab === id ? " on" : ""), "aria-pressed": S.tab === id ? "true" : "false", text: label,
+        onclick: function () { S.tab = id; S.error = ""; render(); if (id === "remove") loadList(); } });
+    }
+    return el("div", { class: "tabs", role: "group", "aria-label": "Co chcesz zrobić" }, [tab("add", "Dodaj prezent"), tab("remove", "Usuń z listy")]);
+  }
+
+  // Lista prezentów do usuwania. Bez rezerwacji, żeby nie zepsuć niespodzianki na własnej liście.
+  function removeView(people) {
+    var R = S.r;
+    if (people.indexOf(R.person) < 0) R.person = people.indexOf(S.person) >= 0 ? S.person : people[0];
+    var pick = people.length > 1 ? el("fieldset", { class: "pick" }, [el("legend", { text: "Która lista?" })].concat(people.map(function (k) {
+      var id = "rp-" + k;
+      return el("span", { class: "pick-opt" }, [
+        el("input", { type: "radio", name: "rperson", id: id, value: k, checked: R.person === k,
+          onchange: function () { R.person = k; R.items = null; R.confirm = null; R.notice = ""; render(); loadList(); } }),
+        el("label", { for: id, text: nom(k) })
+      ]);
+    }))) : null;
+    var body;
+    if (R.loading && !R.items) body = el("p", { class: "hint", text: "Ładuję listę…" });
+    else if (!R.items) body = null;
+    else if (!R.items.length) body = el("p", { class: "hint", text: "Lista " + gen(R.person) + " jest pusta." });
+    else body = el("ul", { class: "rlist" }, R.items.map(function (it) {
+      var asking = R.confirm === it.id;
+      return el("li", { class: "ritem" + (asking ? " asking" : "") }, [
+        el("div", { class: "ritem-info" }, [
+          el("span", { class: "ritem-title", text: it.title || "Bez nazwy" }),
+          it.price ? el("span", { class: "hint", text: it.price }) : null
+        ]),
+        asking ? el("div", { class: "confirm", role: "alert" }, [
+          el("p", { text: "Usunąć ten prezent? Jeśli ktoś go zarezerwował, rezerwacja też zniknie." }),
+          el("div", { class: "confirm-actions" }, [
+            el("button", { class: "btn-danger", type: "button", id: "confirm-" + it.id, disabled: R.busy, text: R.busy ? "Usuwam…" : "Usuń",
+              onclick: function () { removeGift(it); } }),
+            el("button", { class: "btn-ghost", type: "button", disabled: R.busy, text: "Anuluj",
+              onclick: function () { R.confirm = null; render(); } })
+          ])
+        ]) : el("button", { class: "btn-ghost btn-small", type: "button", "aria-label": "Usuń: " + (it.title || "Bez nazwy"), text: "Usuń",
+          onclick: function () { R.confirm = it.id; R.error = ""; render(); var b = document.getElementById("confirm-" + it.id); if (b) b.focus(); } })
+      ]);
+    }));
+    return el("section", { class: "panel remove" }, [
+      pick,
+      R.notice ? el("p", { class: "ok-note", role: "status", text: R.notice }) : null,
+      el("div", { class: "err", role: "alert", text: R.error }),
+      body
+    ]);
+  }
+
+  function loadList() {
+    var R = S.r, k = R.person || S.person || keyed()[0];
+    if (!k) return;
+    R.person = k; R.loading = true; R.error = ""; render();
+    api(k).list().then(function (d) {
+      if (!d || !d.ok) throw new Error("bad");
+      if (R.person === k) R.items = (d.items || []).map(function (x) { return { id: String(x.id), title: String(x.title || ""), price: String(x.price || "") }; });
+    }).catch(function () {
+      R.error = "Nie udało się wczytać listy. Sprawdź połączenie.";
+    }).then(function () { R.loading = false; render(); });
+  }
+
+  function removeGift(it) {
+    var R = S.r, k = R.person;
+    if (R.busy) return;
+    R.busy = true; render();
+    api(k).remove(S.keys[k], it.id).then(function (r) {
+      if (r && r.ok) { R.notice = "Usunięto „" + (it.title || "prezent") + "” z listy " + gen(k) + "."; R.confirm = null; return; }
+      R.error = r && r.error === "bad_key" ? "Klucz listy " + gen(k) + " przestał pasować. Wklej go ponownie poniżej."
+        : r && r.error === "not_found" ? "Tego prezentu już nie ma na liście." : "Nie udało się usunąć. Spróbuj ponownie.";
+      R.confirm = null;
+    }).catch(function () {
+      R.error = "Nie udało się usunąć. Sprawdź połączenie i spróbuj ponownie.";
+    }).then(function () { R.busy = false; loadList(); });
   }
 
   // Szybka ścieżka po udostępnieniu: podgląd i jeden przycisk na listę.

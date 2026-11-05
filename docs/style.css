@@ -276,3 +276,18 @@ textarea.input { resize: vertical; min-height: 64px; }
 .btn-person { min-height: 58px; font-family: var(--font-display); font-weight: 400; font-size: 24px; border-radius: 14px; }
 .quick .link-btn { justify-self: start; padding-left: 0; }
 .btn-link.btn-ghost { border: 1px solid var(--line); color: var(--ink); }
+.tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 5px; background: var(--surface); border-radius: 14px; box-shadow: var(--shadow); }
+.tab { background: transparent; color: var(--muted); border: 0; min-height: 44px; border-radius: 10px; }
+.tab.on { background: var(--btn); color: var(--btn-ink); }
+.remove { display: grid; gap: 12px; }
+.rlist { list-style: none; margin: 0; padding: 0; }
+.ritem { display: grid; grid-template-columns: 1fr auto; gap: 8px 12px; align-items: center; padding: 12px 0; border-top: 1px solid var(--line); }
+.ritem:first-child { border-top: 0; }
+.ritem-info { display: grid; gap: 2px; min-width: 0; }
+.ritem-title { font-weight: 600; overflow-wrap: anywhere; }
+.ritem.asking { grid-template-columns: 1fr; }
+.confirm { background: var(--berry-soft); border-radius: 12px; padding: 12px; }
+.confirm p { margin: 0 0 10px; font-size: 15px; }
+.confirm-actions { display: flex; gap: 8px; }
+.btn-danger { background: var(--berry); color: var(--btn-ink); }
+.ok-note { color: var(--pine); font-weight: 600; margin: 0; }

@@ -58,6 +58,10 @@ function doPost(e) {
     var item = enrich(body);
     return withLock(function () { return addItem(item); });
   }
+  if (body.action === 'remove') {
+    if (!keyOk(body.key)) return json({ ok: false, error: 'bad_key' });
+    return withLock(function () { return removeItem(String(body.id || '')); });
+  }
   var token = String(body.token || '');
   if (!/^[0-9a-f]{16,64}$/i.test(token)) return json({ ok: false, error: 'bad_token' });
   var id = String(body.id || '');
@@ -172,6 +176,25 @@ function keyOk(key) {
 }
 
 function clip(v, n) { return String(v == null ? '' : v).trim().slice(0, n); }
+
+/** Usuwa prezent i jego rezerwację (od dołu, żeby numery wierszy się nie przesuwały). */
+function removeItem(id) {
+  id = id.trim();
+  if (!id) return { ok: false, error: 'no_id' };
+  var s = sheet(ITEMS_SHEET), last = s.getLastRow(), found = false;
+  if (last >= 2) {
+    var ids = s.getRange(2, 1, last - 1, 1).getValues();
+    for (var i = ids.length - 1; i >= 0; i--) {
+      if (String(ids[i][0]).trim() === id) { s.deleteRow(i + 2); found = true; }
+    }
+  }
+  if (!found) return { ok: false, error: 'not_found' };
+  var claims = sheet(CLAIMS_SHEET);
+  readClaims().filter(function (c) { return c.id === id; })
+    .sort(function (a, b) { return b.row - a.row; })
+    .forEach(function (c) { claims.deleteRow(c.row); });
+  return { ok: true };
+}
 
 /** Dopisuje prezent (dane są już uzupełnione przez enrich()). */
 function addItem(b) {
