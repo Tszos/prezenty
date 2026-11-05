@@ -1,12 +1,28 @@
-// Ustawienia listy prezentów — tylko ten plik musisz edytować.
+// Ustawienia list prezentów — tylko ten plik musisz edytować.
 window.GIFT_CONFIG = {
-  // Twoje imię w dopełniaczu ("Lista prezentów Tomka").
-  ownerName: "Tomka",
-  // Imię w mianowniku (do tekstów typu "Tomek nie widzi rezerwacji").
-  ownerNameNominative: "Tomek",
   // Nadtytuł nad nagłówkiem.
   occasion: "Boże Narodzenie 2026",
-  // Adres wdrożonego Google Apps Script (kończy się na /exec).
-  // Zostaw pusty, żeby uruchomić tryb demo (dane tylko w Twojej przeglądarce).
-  apiUrl: "https://script.google.com/macros/s/AKfycbyA6W5XQH1PJ1OJVd0bneBrsmfsp0QNA2uFwysnDNbDAyN28mGaSC7io81_drorKnJhGw/exec"
+
+  // Jedna pozycja na osobę. Klucz to nazwa folderu w docs/ (np. docs/ania/index.html),
+  // a kolejność tutaj to kolejność na stronie wyboru.
+  people: {
+    tomek: {
+      // Imię w mianowniku ("Jestem Tomek") i dopełniaczu ("Lista prezentów Tomka").
+      name: "Tomek",
+      nameGen: "Tomka",
+      // Adres wdrożonego Google Apps Script tej osoby (kończy się na /exec).
+      // Pusty = tryb demo (dane tylko w Twojej przeglądarce).
+      apiUrl: "https://script.google.com/macros/s/AKfycbyA6W5XQH1PJ1OJVd0bneBrsmfsp0QNA2uFwysnDNbDAyN28mGaSC7io81_drorKnJhGw/exec"
+    },
+    ania: {
+      name: "Ania",
+      nameGen: "Ani",
+      apiUrl: ""
+    },
+    mikolaj: {
+      name: "Mikołaj",
+      nameGen: "Mikołaja",
+      apiUrl: ""
+    }
+  }
 };

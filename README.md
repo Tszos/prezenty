@@ -37,7 +37,7 @@ otwieraj zakładki „Rezerwacje” 🙂
 
 ### 2. Strona
 
-1. W pliku [`docs/config.js`](docs/config.js) wklej URL do `apiUrl` i ustaw swoje imię i okazję.
+1. W pliku [`docs/config.js`](docs/config.js) wklej URL do `apiUrl` danej osoby w `people` i ustaw okazję.
 2. Zrób commit i push na gałąź `main`.
 3. W repo na GitHubie: **Settings → Pages → Build and deployment**:
    *Source:* **Deploy from a branch**, *Branch:* **main**, folder **/docs**.
@@ -46,6 +46,17 @@ otwieraj zakładki „Rezerwacje” 🙂
 
 > GitHub Pages na darmowym planie działa tylko dla **publicznych** repozytoriów.
 > Lista jest oznaczona `noindex`, więc nie pojawi się w wyszukiwarkach, ale każdy z linkiem może ją otworzyć.
+
+### Kilka list (np. dla Ani i Mikołaja)
+
+Strona główna to wybór osoby, a każda lista ma swój adres, np. `…/prezenty/ania/`.
+Każda osoba ma **osobny arkusz i osobne wdrożenie** (to samo `Code.gs`):
+
+1. W arkuszu: **Plik → Utwórz kopię** (skrypt kopiuje się razem z arkuszem).
+2. W kopii wyczyść zakładki **Prezenty** i **Rezerwacje** (zostaw nagłówki), wdroż skrypt jak w kroku 1.5 i skopiuj URL `/exec`.
+3. Wklej URL do `apiUrl` tej osoby w `docs/config.js`. Pusty `apiUrl` = tryb demo.
+
+Nowa osoba: dopisz ją w `people` i skopiuj folder `docs/tomek/` pod nazwą klucza, zmieniając w `index.html` tylko `data-person`.
 
 ### 3. Dodawanie prezentów
 
@@ -62,5 +73,5 @@ Bez ustawionego `apiUrl` strona działa w **trybie demo** (przykładowe prezenty
 
 ```bash
 cd docs && python3 -m http.server 8000
-# otwórz http://localhost:8000
+# otwórz http://localhost:8000 (wybór osoby) lub http://localhost:8000/ania/
 ```

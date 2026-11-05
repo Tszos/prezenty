@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Lista prezentów</title>
+<title>Listy prezentów</title>
 <meta name="robots" content="noindex">
 <meta name="color-scheme" content="light dark">
 <meta name="theme-color" content="#16204A">
@@ -22,21 +22,35 @@
       </svg>
       <span id="occasion"></span>
     </p>
-    <h1 id="title">Lista prezentów</h1>
-    <p class="lead">Wybierz coś z listy i kliknij „Rezerwuję”. Inni zobaczą, że prezent jest zajęty, więc nikt nie kupi tego samego. Nie potrzebujesz konta.</p>
-    <p class="summary" id="summary" aria-live="polite"></p>
+    <h1>Listy prezentów</h1>
+    <p class="lead">Wybierz, dla kogo szukasz prezentu. Na każdej liście możesz zarezerwować prezent, żeby nikt nie kupił tego samego. Nie potrzebujesz konta.</p>
   </div>
 </header>
 <main class="wrap">
-  <div id="notice"></div>
-  <div class="groups" id="groups"><p class="empty">Ładuję listę…</p></div>
+  <nav aria-label="Listy prezentów">
+    <ul class="people" id="people"></ul>
+  </nav>
 </main>
 <footer class="foot">
-  <p id="footer-text"></p>
-  <button type="button" class="link-btn" id="surprise-toggle"></button>
+  <p>Każda osoba ma swoją listę i swój link, który możesz wysłać dalej.</p>
 </footer>
 <script src="config.js"></script>
-<script src="price.js"></script>
-<script src="app.js"></script>
+<script>
+  (function () {
+    "use strict";
+    var cfg = window.GIFT_CONFIG || {}, people = cfg.people || {};
+    document.getElementById("occasion").textContent = cfg.occasion || "";
+    var list = document.getElementById("people");
+    Object.keys(people).forEach(function (k) {
+      var p = people[k], li = document.createElement("li"), a = document.createElement("a");
+      a.className = "person"; a.href = k + "/";
+      var name = document.createElement("span"); name.className = "person-name"; name.textContent = p.name || k;
+      var sub = document.createElement("span"); sub.className = "person-sub"; sub.textContent = "Lista prezentów " + (p.nameGen || p.name || k);
+      a.appendChild(name); a.appendChild(sub);
+      a.insertAdjacentHTML("beforeend", '<svg class="chev" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>');
+      li.appendChild(a); list.appendChild(li);
+    });
+  })();
+</script>
 </body>
 </html>

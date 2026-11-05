@@ -2,9 +2,13 @@
   "use strict";
 
   var CFG = window.GIFT_CONFIG || {};
-  var OWNER_GEN = CFG.ownerName || "solenizanta";
-  var OWNER_NOM = CFG.ownerNameNominative || "Solenizant";
-  var DEMO = !CFG.apiUrl;
+  var PEOPLE = CFG.people || {};
+  // Czyja to lista: <body data-person="ania"> w docs/ania/index.html.
+  var PERSON = document.body.getAttribute("data-person") || "";
+  var P = PEOPLE[PERSON] || {};
+  var OWNER_GEN = P.nameGen || "solenizanta";
+  var OWNER_NOM = P.name || "Solenizant";
+  var DEMO = !P.apiUrl;
   var POLL_MS = 30000;
   var PRICE = window.GiftPrice;
 
@@ -12,6 +16,8 @@
   function lsGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
   function lsSet(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
   function lsJson(k) { try { var v = JSON.parse(lsGet(k)); return v && typeof v === "object" ? v : null; } catch (e) { return null; } }
+  // Klucze zależne od listy. Tomek zostaje przy starych nazwach, żeby zachować zapisany stan.
+  function pk(k) { return PERSON === "tomek" ? k : k + ":" + PERSON; }
 
   // Anonimowy token tej przeglądarki: pozwala anulować własną rezerwację bez konta.
   function randomToken() {
@@ -26,13 +32,13 @@
     items: [], claims: {}, loaded: false, error: "", busy: {}, claimErr: null,
     openClaim: null, draft: "", formFresh: false, justClaimed: null,
     myName: lsGet("gift-name") || "",
-    surprise: lsGet("gift-surprise") === "1",
+    surprise: lsGet(pk("gift-surprise")) === "1",
     // Stan rozwinięcia grup: { klucz: false } = zwinięta. Domyślnie wszystkie rozwinięte.
-    groupsOpen: lsJson("gift-groups") || {}
+    groupsOpen: lsJson(pk("gift-groups")) || {}
   };
 
   // ---------- backend ----------
-  var api = DEMO ? demoApi() : remoteApi(CFG.apiUrl);
+  var api = DEMO ? demoApi() : remoteApi(P.apiUrl);
 
   function remoteApi(url) {
     return {
@@ -54,7 +60,7 @@
 
   // Tryb demo: wszystko w localStorage, żeby można było obejrzeć stronę bez backendu.
   function demoApi() {
-    var KEY = "gift-demo-v2";
+    var KEY = pk("gift-demo-v2");
     function load() {
       var d = lsJson(KEY);
       if (d && d.items) return d;
@@ -147,7 +153,7 @@
     document.getElementById("surprise-toggle").textContent = S.surprise
       ? "Pokaż rezerwacje"
       : "Jestem " + OWNER_NOM + " – ukryj przede mną rezerwacje";
-    renderSummary(); renderNotice(); renderGroups();
+    renderSummary(); renderNotice(); renderGroups(); renderOthers();
 
     var target = null;
     if (S.formFresh || S.focusInput) {
@@ -177,11 +183,23 @@
     box.appendChild(document.createTextNode(" z " + gifts(total)));
   }
 
+  // Linki do pozostałych list w stopce.
+  function renderOthers() {
+    var nav = document.getElementById("others");
+    if (!nav || nav.childNodes.length) return;
+    var keys = Object.keys(PEOPLE).filter(function (k) { return k !== PERSON; });
+    if (!keys.length) { nav.hidden = true; return; }
+    nav.appendChild(el("span", { text: "Inne listy:" }));
+    keys.forEach(function (k) {
+      nav.appendChild(el("a", { href: "../" + k + "/", text: "Lista " + (PEOPLE[k].nameGen || k) }));
+    });
+  }
+
   function renderNotice() {
     var box = document.getElementById("notice");
     box.textContent = "";
     if (S.error) box.appendChild(el("div", { class: "notice", role: "alert", text: S.error }));
-    if (DEMO) box.appendChild(el("div", { class: "notice demo", text: "Tryb demo: brak adresu backendu w config.js, więc rezerwacje zapisują się tylko w tej przeglądarce." }));
+    if (DEMO && PEOPLE[PERSON]) box.appendChild(el("div", { class: "notice demo", text: "Tryb demo: brak adresu backendu w config.js, więc rezerwacje zapisują się tylko w tej przeglądarce." }));
   }
 
   function renderGroups() {
@@ -212,7 +230,7 @@
     d.addEventListener("toggle", function () {
       if (isOpen(g.key) === d.open) return;
       if (d.open) delete S.groupsOpen[g.key]; else S.groupsOpen[g.key] = false;
-      lsSet("gift-groups", JSON.stringify(S.groupsOpen));
+      lsSet(pk("gift-groups"), JSON.stringify(S.groupsOpen));
     });
     return d;
   }
@@ -285,6 +303,7 @@
   }
 
   function refresh() {
+    if (!PEOPLE[PERSON]) { S.error = "Nie ma takiej listy. Wybierz osobę na stronie głównej."; render(); return Promise.resolve(); }
     return api.list().then(function (d) {
       if (!d || !d.ok) throw new Error((d && d.error) || "bad");
       S.items = (d.items || []).map(function (x) {
@@ -337,7 +356,7 @@
 
   document.getElementById("surprise-toggle").addEventListener("click", function () {
     S.surprise = !S.surprise;
-    lsSet("gift-surprise", S.surprise ? "1" : "0");
+    lsSet(pk("gift-surprise"), S.surprise ? "1" : "0");
     S.openClaim = null;
     render();
   });

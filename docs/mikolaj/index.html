@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lista prezentów</title>
+<meta name="robots" content="noindex">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#16204A">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎁</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Gloock&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body data-person="mikolaj">
+<header class="hero">
+  <div class="hero-inner">
+    <p class="occasion">
+      <svg class="star" viewBox="0 0 48 48" aria-hidden="true" focusable="false">
+        <path d="M24 1 27.6 15.2 34.6 13.4 32.8 20.4 47 24 32.8 27.6 34.6 34.6 27.6 32.8 24 47 20.4 32.8 13.4 34.6 15.2 27.6 1 24 15.2 20.4 13.4 13.4 20.4 15.2Z"/>
+      </svg>
+      <span id="occasion"></span>
+    </p>
+    <h1 id="title">Lista prezentów</h1>
+    <p class="lead">Wybierz coś z listy i kliknij „Rezerwuję”. Inni zobaczą, że prezent jest zajęty, więc nikt nie kupi tego samego. Nie potrzebujesz konta.</p>
+    <p class="summary" id="summary" aria-live="polite"></p>
+  </div>
+</header>
+<main class="wrap">
+  <div id="notice"></div>
+  <div class="groups" id="groups"><p class="empty">Ładuję listę…</p></div>
+</main>
+<footer class="foot">
+  <p id="footer-text"></p>
+  <button type="button" class="link-btn" id="surprise-toggle"></button>
+  <nav class="others" id="others" aria-label="Inne listy prezentów"></nav>
+</footer>
+<script src="../config.js"></script>
+<script src="../price.js"></script>
+<script src="../app.js"></script>
+</body>
+</html>
