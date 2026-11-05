@@ -1,0 +1,4 @@
+# One line per list: name, Apps Script project ID, web-app deployment ID (the part of apiUrl between /s/ and /exec).
+tomek    1U30sY98ras5ZBHI89NDtBtLH1tzdIAJONJf8PnMqy2dt4pVqHD0yLXBm  AKfycbyA6W5XQH1PJ1OJVd0bneBrsmfsp0QNA2uFwysnDNbDAyN28mGaSC7io81_drorKnJhGw
+ania     1ISIDRBMhvha_jXBSNRjeF7CQhhTFDpkaIzNSZzc0ipWgyV4uOXa2M_q4  AKfycby9f2SlGQaxQ5f0-iFEslZT216jcQCVcXx6qn8DtQixA5fofcBFz8Q4gdboMroAzDxD
+mikolaj  1GGQjTvkeXaZCy1vfes-4JSt4a1Boj-1JI1Bo3fTyoF9PCC6e9uIUleko  AKfycby_oR-PiLL9PeSCLiTdUntDjhGsXZExgVJBPp5P5UEl3N79LepIrNadrjpjtep1O3CQ

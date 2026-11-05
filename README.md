@@ -58,6 +58,19 @@ Każda osoba ma **osobny arkusz i osobne wdrożenie** (to samo `Code.gs`):
 
 Nowa osoba: dopisz ją w `people` i skopiuj folder `docs/tomek/` pod nazwą klucza, zmieniając w `index.html` tylko `data-person`.
 
+### Dodawanie prezentów z telefonu (aplikacja „Dodaj prezent”)
+
+`docs/dodaj/` to mała aplikacja (PWA), która po instalacji pojawia się w menu **Udostępnij** na Androidzie.
+Udostępniasz stronę produktu, wybierasz listę, poprawiasz nazwę i cenę, klikasz **Dodaj**.
+
+1. Każdy skrypt ma własny klucz (właściwość `ADMIN_KEY`). Tworzy go funkcja `authorize()` uruchomiona z edytora.
+2. Na telefonie otwórz w **Chrome** link `…/prezenty/dodaj/#klucze=tomek:KLUCZ,ania:KLUCZ` (część po `#` nie trafia na serwer),
+   potem menu ⋮ → **Dodaj do ekranu głównego / Zainstaluj aplikację**.
+3. Klucz pozwala dodawać prezenty do listy, więc nie publikuj go. Nowy klucz: usuń `ADMIN_KEY` w ustawieniach projektu i uruchom `authorize()`.
+
+Kod skryptów aktualizujesz bez edytora: `apps-script/deploy.sh redeploy` (wymaga `clasp login` i włączonego
+Apps Script API w <https://script.google.com/home/usersettings>). Adresy `/exec` się nie zmieniają.
+
 ### 3. Dodawanie prezentów
 
 Wpisuj kolejne wiersze w zakładce **Prezenty**: `Nazwa`, `Opis`, `Cena`, `Sklep`, `Link`.

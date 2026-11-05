@@ -220,3 +220,50 @@ button:disabled { opacity: .55; cursor: progress; }
 .others[hidden] { display: none; }
 .others:empty { display: none; }
 .others a { color: var(--ink); font-weight: 600; text-decoration: underline; text-decoration-color: var(--gold); text-decoration-thickness: 2px; text-underline-offset: 3px; }
+
+/* ---------- aplikacja „Dodaj prezent” ---------- */
+.hero-sm { padding-bottom: 76px; }
+.hero-sm h1 { font-size: clamp(36px, 9vw, 54px); }
+.panel { background: var(--surface); border-radius: 18px; box-shadow: var(--shadow); padding: 20px; }
+.panel p { margin: 0 0 8px; }
+.panel-title { font-family: var(--font-display); font-weight: 400; font-size: 25px; line-height: 1.15; margin: 0 0 8px; }
+.add-form { display: grid; gap: 14px; }
+.for-whom { color: var(--muted); }
+.field { display: grid; gap: 6px; }
+.field label, .pick legend, .key-form label { font-weight: 600; font-size: 15px; }
+.input {
+  font: inherit; font-size: 16px; color: var(--ink); background: var(--page);
+  border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; width: 100%; min-height: 46px;
+}
+textarea.input { resize: vertical; min-height: 64px; }
+.input:focus-visible { border-color: var(--focus); outline-offset: 1px; }
+.hint { color: var(--muted); font-size: 14px; margin: 0; }
+.hint:empty { display: none; }
+.pick { border: 0; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: 8px; }
+.pick legend { padding: 0; margin-bottom: 8px; }
+.pick-opt input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.pick-opt label {
+  display: inline-flex; align-items: center; min-height: 44px; padding: 8px 18px; border-radius: 999px;
+  border: 1px solid var(--line); background: var(--page); cursor: pointer;
+  font-family: var(--font-display); font-size: 20px; font-weight: 400;
+}
+.pick-opt input:checked + label { background: var(--btn); color: var(--btn-ink); border-color: var(--btn); }
+.pick-opt input:focus-visible + label { outline: 3px solid var(--focus); outline-offset: 3px; }
+.btn-wide { width: 100%; min-height: 50px; font-size: 16px; }
+.btn-link { display: inline-flex; align-items: center; justify-content: center; text-decoration: none; border-radius: 10px; padding: 9px 16px; font-weight: 700; font-size: 15px; min-height: 42px; }
+.done { border-left: 4px solid var(--pine); }
+.done .panel-title { color: var(--pine); }
+.done-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
+.settings { padding: 0; }
+.settings > summary { cursor: pointer; padding: 16px 20px; font-weight: 600; border-radius: 18px; }
+.settings > summary:focus-visible { outline-offset: -3px; }
+.settings[open] > summary { border-bottom: 1px solid var(--line); }
+.keys { list-style: none; margin: 0; padding: 8px 20px; }
+.key-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; }
+.key-name { font-weight: 600; }
+.key-ok { color: var(--pine); font-size: 14px; font-weight: 600; }
+.key-missing { color: var(--muted); font-size: 14px; }
+.key-row .btn-small { margin-left: auto; min-height: 36px; padding: 5px 12px; font-size: 14px; }
+.key-form { display: grid; gap: 8px; padding: 4px 20px 20px; }
+.key-form .btn-ghost { justify-self: start; }
+.add-page .wrap > #view { display: grid; gap: 16px; }

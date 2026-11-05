@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dodaj prezent</title>
+<meta name="robots" content="noindex">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#16204A">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Gloock&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body class="add-page">
+<header class="hero hero-sm">
+  <div class="hero-inner">
+    <p class="occasion">
+      <svg class="star gift-icon" viewBox="0 0 48 48" aria-hidden="true" focusable="false">
+        <path d="M24 16C18 5 8 9 14 16ZM24 16C30 5 40 9 34 16Z"/>
+        <rect x="5" y="16" width="17" height="8" rx="2"/><rect x="26" y="16" width="17" height="8" rx="2"/>
+        <rect x="8" y="26" width="14" height="18" rx="2"/><rect x="26" y="26" width="14" height="18" rx="2"/>
+      </svg>
+      <span id="occasion"></span>
+    </p>
+    <h1>Dodaj prezent</h1>
+    <p class="lead" id="lead">Udostępnij stronę produktu z dowolnej przeglądarki i wybierz „Dodaj prezent”.</p>
+  </div>
+</header>
+<main class="wrap">
+  <div id="notice"></div>
+  <div id="view"></div>
+</main>
+<footer class="foot">
+  <button type="button" class="link-btn" id="install" hidden>Zainstaluj aplikację na telefonie</button>
+  <nav class="others" aria-label="Listy prezentów"><a href="../">Wszystkie listy</a></nav>
+</footer>
+<script src="../config.js"></script>
+<script src="../price.js"></script>
+<script src="dodaj.js"></script>
+</body>
+</html>
