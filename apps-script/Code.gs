@@ -41,7 +41,7 @@ function doGet(e) {
   // Podgląd strony sklepu (nazwa, cena) dla aplikacji do dodawania. Bez blokady: nic nie zapisuje.
   if (p.action === 'preview') {
     if (!keyOk(p.key)) return json({ ok: false, error: 'bad_key' });
-    try { return json(preview(String(p.url || ''))); }
+    try { return json(preview(String(p.url || ''), String(p.title || ''))); }
     catch (err) { return json({ ok: true, title: '', price: '', shop: '' }); }
   }
   if (p.action === 'check') return json({ ok: keyOk(p.key), error: keyOk(p.key) ? undefined : 'bad_key' });
@@ -54,7 +54,9 @@ function doPost(e) {
   try { body = JSON.parse(e.postData.contents); } catch (err) { return json({ ok: false, error: 'bad_request' }); }
   if (body.action === 'add') {
     if (!keyOk(body.key)) return json({ ok: false, error: 'bad_key' });
-    return withLock(function () { return addItem(body); });
+    // Uzupełnianie danych (pobieranie stron) poza blokadą, żeby nie wstrzymywać rezerwacji.
+    var item = enrich(body);
+    return withLock(function () { return addItem(item); });
   }
   var token = String(body.token || '');
   if (!/^[0-9a-f]{16,64}$/i.test(token)) return json({ ok: false, error: 'bad_token' });
@@ -171,33 +173,113 @@ function keyOk(key) {
 
 function clip(v, n) { return String(v == null ? '' : v).trim().slice(0, n); }
 
+/** Dopisuje prezent (dane są już uzupełnione przez enrich()). */
 function addItem(b) {
-  var title = clip(b.title, 120);
-  if (!title) return { ok: false, error: 'no_title' };
-  var url = clip(b.url, 500);
-  if (url && !/^https?:\/\//i.test(url)) url = '';
+  if (!b.title) return { ok: false, error: 'no_title' };
   var id = Utilities.getUuid().slice(0, 8);
   var s = sheet(ITEMS_SHEET);
-  s.appendRow([id, sheetSafe(title), sheetSafe(clip(b.desc, 300)), sheetSafe(clip(b.price, 40)), sheetSafe(clip(b.shop, 60)), url]);
+  s.appendRow([id, sheetSafe(b.title), sheetSafe(b.desc), sheetSafe(b.price), sheetSafe(b.shop), b.url]);
   // Cena jako tekst, żeby „100” nie zamieniło się w liczbę bez „zł”.
   s.getRange(s.getLastRow(), 4).setNumberFormat('@');
-  return { ok: true, id: id };
+  return { ok: true, id: id, title: b.title, price: b.price, shop: b.shop };
 }
 
-/** Pobiera stronę produktu i wyciąga z niej nazwę, cenę i sklep (najlepiej jak się da). */
-function preview(url) {
-  if (!/^https?:\/\//i.test(url)) return { ok: false, error: 'bad_url' };
-  var res = UrlFetchApp.fetch(url, {
-    muteHttpExceptions: true, followRedirects: true,
-    headers: {
-      'User-Agent': 'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Mobile Safari/537.36',
-      'Accept-Language': 'pl-PL,pl;q=0.9'
+/**
+ * Uzupełnia to, co przysłał telefon: rozwija krótkie linki (share.google itp.), czyści nazwę,
+ * ustala sklep, a gdy sklep na to pozwala, bierze nazwę i cenę ze strony produktu.
+ */
+function enrich(b) {
+  var out = {
+    title: clip(b.title, 200), desc: clip(b.desc, 300), price: clip(b.price, 40),
+    shop: clip(b.shop, 60), url: clip(b.url, 500)
+  };
+  if (out.url && !/^https?:\/\//i.test(out.url)) out.url = '';
+  if (out.url) {
+    var page = null;
+    try { page = fetchPage(out.url); } catch (err) {}
+    if (page) {
+      out.url = page.url.slice(0, 500);
+      var meta = page.html ? extractMeta(page.html) : { title: '', price: '', shop: '' };
+      if (meta.title && !b.keepTitle) out.title = meta.title;
+      if (meta.price && !out.price) out.price = meta.price;
+      var host = shopFromUrl(out.url);
+      if (host && (!out.shop || out.shop === 'Share' || out.shop === 'Google' || b.autoShop)) out.shop = meta.shop || host;
     }
-  });
-  if (res.getResponseCode() >= 400) return { ok: true, title: '', price: '', shop: '' };
-  var meta = extractMeta(res.getContentText().slice(0, 600000));
-  meta.ok = true;
-  return meta;
+    if (!out.title) out.title = slugTitle(out.url);
+  }
+  out.title = cleanTitle(out.title, out.shop).slice(0, 120);
+  return out;
+}
+
+var UA = 'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Mobile Safari/537.36';
+
+/** Idzie za przekierowaniami (do 6), zwraca końcowy adres i HTML, jeśli strona go oddała. */
+function fetchPage(url) {
+  for (var hop = 0; hop < 6; hop++) {
+    var res = UrlFetchApp.fetch(url, {
+      muteHttpExceptions: true, followRedirects: false,
+      headers: { 'User-Agent': UA, 'Accept-Language': 'pl-PL,pl;q=0.9' }
+    });
+    var code = res.getResponseCode();
+    if (code >= 300 && code < 400) {
+      var h = res.getAllHeaders(), loc = h.Location || h.location;
+      if (Array.isArray(loc)) loc = loc[0];
+      if (!loc) break;
+      url = /^https?:\/\//i.test(loc) ? loc : url.replace(/^(https?:\/\/[^\/]+).*$/, '$1') + (loc.charAt(0) === '/' ? '' : '/') + loc;
+      continue;
+    }
+    return { url: url, html: code < 400 ? res.getContentText().slice(0, 600000) : '' };
+  }
+  return { url: url, html: '' };
+}
+
+/** Podgląd dla aplikacji: to samo co przy dodawaniu, ale bez zapisu. */
+function preview(url, title) {
+  if (!/^https?:\/\//i.test(url)) return { ok: false, error: 'bad_url' };
+  var e = enrich({ url: url, title: title, autoShop: true });
+  return { ok: true, title: e.title, price: e.price, shop: e.shop, url: e.url };
+}
+
+var SHOPS = { allegro: 'Allegro', empik: 'Empik', ceneo: 'Ceneo', mediaexpert: 'Media Expert', 'x-kom': 'x-kom',
+  decathlon: 'Decathlon', rebel: 'Rebel', amazon: 'Amazon', ikea: 'IKEA', zalando: 'Zalando', morele: 'Morele',
+  euro: 'RTV Euro AGD', mediamarkt: 'MediaMarkt', olx: 'OLX', lego: 'LEGO', smyk: 'Smyk', rossmann: 'Rossmann',
+  sephora: 'Sephora', notino: 'Notino', taniaksiazka: 'TaniaKsiążka', bonito: 'Bonito', aliexpress: 'AliExpress', temu: 'Temu' };
+
+function shopFromUrl(u) {
+  var m = /^https?:\/\/([^\/?#]+)/i.exec(String(u || ''));
+  if (!m) return '';
+  var parts = m[1].toLowerCase().replace(/^(www|m)\./, '').split('.');
+  var name = parts.length > 2 && /^(com|co|org)$/.test(parts[parts.length - 2]) ? parts[parts.length - 3] : (parts[parts.length - 2] || parts[0]);
+  if (/^(share|google|goo|bit|tinyurl)$/.test(name)) return '';
+  return SHOPS[name] || name.charAt(0).toUpperCase() + name.slice(1);
+}
+
+/** Nazwa z adresu, gdy nic innego nie ma, np. allegro.pl/oferta/lego-icons-shire-10354-123456789. */
+function slugTitle(u) {
+  var m = /^https?:\/\/[^\/]+\/([^?#]*)/i.exec(String(u || ''));
+  if (!m) return '';
+  var segs = m[1].split('/').filter(function (x) { return /[a-z].*-.*[a-z]/i.test(x); });
+  if (!segs.length) return '';
+  var slug = decodeURIComponent(segs[segs.length - 1])
+    .replace(/\.html?$/i, '')
+    .replace(/-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i, '')
+    .replace(/-\d{7,}$/, '');
+  var t = slug.replace(/[-_]+/g, ' ').trim();
+  return t ? t.charAt(0).toUpperCase() + t.slice(1) : '';
+}
+
+/** Usuwa dopiski sklepów: „• Cena • Opinie - Allegro”, „| Empik”, „- Ceneo.pl”, numery ofert. */
+function cleanTitle(t, shop) {
+  t = String(t || '').replace(/\s+/g, ' ').trim();
+  var noise = /^(allegro(\.pl)?|ceneo(\.pl)?|empik(\.com)?|amazon(\.pl)?|ikea|media ?expert|x-kom|rtv euro agd|mediamarkt|decathlon|zalando|olx|cena|opinie|cena i opinie|sklep.*|.*\.(pl|com))$/i;
+  for (var i = 0; i < 6; i++) {
+    var m = /\s+[•|\-–—:]\s+([^•|\-–—]{1,40})$/.exec(t);
+    if (!m) break;
+    var seg = m[1].trim();
+    if (noise.test(seg) || (shop && seg.toLowerCase() === String(shop).toLowerCase())) t = t.slice(0, m.index).trim();
+    else break;
+  }
+  return t.replace(/[,\s]+\(?\d{9,}\)?$/, '').replace(/[\s•|\-–—:,]+$/, '').trim();
 }
 
 function decodeEntities(s) {
@@ -270,4 +352,4 @@ function unclaim(id, token) {
 }
 
 // Dla testów w Node (w Apps Script `module` nie istnieje).
-if (typeof module !== 'undefined') module.exports = { extractMeta: extractMeta, decodeEntities: decodeEntities };
+if (typeof module !== 'undefined') module.exports = { extractMeta: extractMeta, decodeEntities: decodeEntities, cleanTitle: cleanTitle, slugTitle: slugTitle, shopFromUrl: shopFromUrl };

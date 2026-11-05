@@ -267,3 +267,12 @@ textarea.input { resize: vertical; min-height: 64px; }
 .key-form { display: grid; gap: 8px; padding: 4px 20px 20px; }
 .key-form .btn-ghost { justify-self: start; }
 .add-page .wrap > #view { display: grid; gap: 16px; }
+.quick { display: grid; gap: 10px; }
+.quick-name { font-size: 19px; font-weight: 600; line-height: 1.35; margin: 0; overflow-wrap: anywhere; }
+.quick-meta { display: flex; flex-wrap: wrap; gap: 4px 14px; color: var(--muted); margin: 0; }
+.quick-meta .price { color: var(--ink); }
+.quick-label { font-size: 15px; font-weight: 600; margin: 8px 0 0; }
+.quick-buttons { display: grid; gap: 10px; }
+.btn-person { min-height: 58px; font-family: var(--font-display); font-weight: 400; font-size: 24px; border-radius: 14px; }
+.quick .link-btn { justify-self: start; padding-left: 0; }
+.btn-link.btn-ghost { border: 1px solid var(--line); color: var(--ink); }

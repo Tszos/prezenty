@@ -17,7 +17,9 @@
     form: { title: "", price: "", desc: "", shop: "", url: "" },
     touched: {},          // pola, które użytkownik sam zmienił: podgląd ich nie nadpisuje
     preview: "",          // "", "loading", "done", "none"
-    busy: false, error: "", done: null, notice: ""
+    busy: false, error: "", done: null, notice: "",
+    shared: false,        // otwarte z menu Udostępnij: pokazujemy szybkie przyciski list
+    editing: false        // „Popraw przed dodaniem”
   };
 
   // ---------- pomocnicze ----------
@@ -47,6 +49,7 @@
     try {
       var parts = new URL(u).hostname.replace(/^www\.|^m\./, "").split(".");
       var name = parts.length > 2 && /^(com|co|org)$/.test(parts[parts.length - 2]) ? parts[parts.length - 3] : parts[parts.length - 2] || parts[0];
+      if (/^(share|google|goo|bit|tinyurl)$/.test(name)) return "";
       return SHOPS[name] || (name.charAt(0).toUpperCase() + name.slice(1));
     } catch (e) { return ""; }
   }
@@ -62,7 +65,7 @@
     if (!url) return demoApi(k);
     return {
       check: function (key) { return getJson(url, { action: "check", key: key }); },
-      preview: function (key, u) { return getJson(url, { action: "preview", key: key, url: u }); },
+      preview: function (key, u, t) { return getJson(url, { action: "preview", key: key, url: u, title: t || "" }); },
       add: function (key, item) {
         item.action = "add"; item.key = key;
         return fetch(url, { method: "POST", redirect: "follow", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify(item) })
@@ -107,7 +110,8 @@
       S.form.url = url.replace(/[)\].,]+$/, "");
       S.form.shop = shopFromUrl(S.form.url);
     }
-    if (title) S.form.title = title.slice(0, 120);
+    if (title) S.form.title = title.slice(0, 200);
+    S.shared = !!(S.form.url || S.form.title);
   }
 
   // Link konfiguracyjny: …/dodaj/#klucze=tomek:abc,ania:def (część po # nie trafia na serwer).
@@ -139,6 +143,8 @@
 
   function draw() {
     document.getElementById("occasion").textContent = "Listy prezentów";
+    // Po udostępnieniu liczy się szybki wybór listy, więc opis aplikacji znika.
+    document.getElementById("lead").hidden = S.shared && !S.done;
     var notice = document.getElementById("notice");
     notice.textContent = "";
     if (S.notice) notice.appendChild(el("div", { class: "notice demo", role: "status", text: S.notice }));
@@ -150,6 +156,7 @@
     var people = keyed();
     if (S.done) view.appendChild(doneView());
     else if (!people.length) view.appendChild(setupIntro());
+    else if (S.shared && !S.editing) view.appendChild(quickView(people));
     else view.appendChild(formView(people));
     view.appendChild(settingsView());
   }
@@ -171,6 +178,31 @@
     return el("div", { class: "field" }, [
       el("label", { for: id, text: label }), input,
       hint ? el("p", { class: "hint", text: hint }) : null
+    ]);
+  }
+
+  // Szybka ścieżka po udostępnieniu: podgląd i jeden przycisk na listę.
+  function quickView(people) {
+    var f = S.form;
+    var name = f.title || (S.preview === "loading" ? "Sprawdzam nazwę…" : "Bez nazwy: uzupełnię ją z linku");
+    var meta = el("p", { class: "quick-meta" }, [
+      f.shop ? el("span", { text: f.shop }) : null,
+      f.price ? el("span", { class: "price", text: f.price }) : null
+    ]);
+    return el("section", { class: "panel quick" }, [
+      el("p", { class: "quick-name", text: name }),
+      meta.childNodes.length ? meta : null,
+      el("p", { class: "hint", role: "status", text: S.preview === "loading" ? "Sprawdzam stronę sklepu…" : "" }),
+      el("h2", { class: "quick-label", id: "quick-label", text: "Dodaj do listy:" }),
+      el("div", { class: "quick-buttons", role: "group", "aria-labelledby": "quick-label" }, people.map(function (k) {
+        var mine = S.busy && S.person === k;
+        return el("button", { class: "btn-primary btn-person", type: "button", disabled: S.busy,
+          "aria-label": "Dodaj do listy " + gen(k), text: mine ? "Dodaję…" : nom(k),
+          onclick: function () { S.person = k; lsSet(LAST_LS, k); send(); } });
+      })),
+      el("div", { class: "err", role: "alert", text: S.error }),
+      el("button", { class: "link-btn", type: "button", text: "Popraw przed dodaniem",
+        onclick: function () { S.editing = true; render(); var t = document.getElementById("f-title"); if (t) t.focus(); } })
     ]);
   }
 
@@ -210,10 +242,17 @@
     return el("section", { class: "panel done" }, [
       el("h2", { class: "panel-title", text: "Dodano do listy " + gen(d.person) }),
       el("p", { text: "„" + d.title + "” jest już na liście. Inni zobaczą go w ciągu pół minuty." }),
+      d.price ? el("p", { class: "hint", text: "Cena: " + d.price }) : null,
       el("div", { class: "done-actions" }, [
-        el("a", { class: "btn-primary btn-link", href: "../" + d.person + "/", text: "Zobacz listę " + gen(d.person) }),
+        el("button", { class: "btn-primary", type: "button", text: "Gotowe", onclick: function () {
+          window.close();
+          // Gdy okna nie da się zamknąć (zwykła karta), wracamy do pustego formularza.
+          setTimeout(function () { location.replace(location.pathname); }, 300);
+        } }),
+        el("a", { class: "btn-ghost btn-link", href: "../" + d.person + "/", text: "Zobacz listę " + gen(d.person) }),
         el("button", { class: "btn-ghost", type: "button", text: "Dodaj kolejny", onclick: function () {
           S.done = null; S.form = { title: "", price: "", desc: "", shop: "", url: "" }; S.touched = {}; S.preview = "";
+          S.shared = false; S.editing = false;
           history.replaceState(null, "", location.pathname); render();
           var t = document.getElementById("f-title"); if (t) t.focus();
         } })
@@ -265,11 +304,11 @@
     var k = S.person;
     if (!S.form.url || !S.keys[k] || S.preview) return;
     S.preview = "loading"; render();
-    api(k).preview(S.keys[k], S.form.url).then(function (r) {
+    api(k).preview(S.keys[k], S.form.url, S.form.title).then(function (r) {
       var filled = false;
-      ["title", "price", "shop"].forEach(function (f) {
-        // Nazwa ze strony jest zwykle lepsza niż to, co przysłało menu Udostępnij, chyba że ktoś już ją poprawił.
-        if (r && r[f] && !S.touched[f] && (f === "title" || f === "price" || !S.form[f])) { S.form[f] = r[f]; filled = true; }
+      // Serwer rozwija krótkie linki i czyści nazwę, więc jego wersja wygrywa, chyba że ktoś już coś poprawił.
+      ["title", "price", "shop", "url"].forEach(function (f) {
+        if (r && r[f] && !S.touched[f] && r[f] !== S.form[f]) { S.form[f] = r[f]; filled = true; }
       });
       S.preview = filled ? "done" : "none";
     }).catch(function () { S.preview = "none"; }).then(render);
@@ -278,14 +317,20 @@
   function submit(e) {
     e.preventDefault();
     if (S.busy) return;
-    var f = S.form;
-    if (!f.title.trim()) { S.error = "Wpisz nazwę prezentu."; render(); document.getElementById("f-title").focus(); return; }
-    var k = S.person;
-    var item = { title: f.title.trim(), price: normPrice(f.price), desc: f.desc.trim(), shop: f.shop.trim(), url: f.url.trim() };
+    if (!S.form.title.trim() && !S.form.url.trim()) { S.error = "Wpisz nazwę prezentu."; render(); document.getElementById("f-title").focus(); return; }
+    send();
+  }
+
+  // Wysyła prezent; brakującą nazwę, sklep i cenę serwer uzupełnia sam z linku.
+  function send() {
+    if (S.busy) return;
+    var f = S.form, k = S.person;
+    var item = { title: f.title.trim(), price: normPrice(f.price), desc: f.desc.trim(), shop: f.shop.trim(), url: f.url.trim(),
+      keepTitle: !!S.touched.title, autoShop: !S.touched.shop };
     if (item.url && !/^https?:\/\//i.test(item.url)) item.url = "https://" + item.url;
     S.busy = true; S.error = ""; render();
     api(k).add(S.keys[k], item).then(function (r) {
-      if (r && r.ok) { S.done = { person: k, title: item.title }; lsSet(LAST_LS, k); return; }
+      if (r && r.ok) { S.done = { person: k, title: r.title || item.title || "Prezent", price: r.price || item.price }; lsSet(LAST_LS, k); return; }
       S.error = r && r.error === "bad_key"
         ? "Klucz listy " + gen(k) + " przestał pasować. Wklej go ponownie w sekcji „Klucze na tym telefonie”."
         : "Nie udało się dodać prezentu. Spróbuj ponownie za chwilę.";
