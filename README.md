@@ -80,6 +80,11 @@ Aby usunąć prezent, usuń jego wiersz. Aby ręcznie zwolnić rezerwację, usu�
 > Zmiany w `Code.gs` wymagają nowej wersji wdrożenia (**Wdróż → Zarządzaj wdrożeniami → Edytuj → Nowa wersja**).
 > Zmiany w samym arkuszu (prezenty) działają od razu.
 
+## Publikowanie zmian strony
+
+GitHub Pages pozwala przeglądarkom trzymać każdy plik przez 10 minut. Przed commitem zmian w `docs/`
+uruchom `scripts/stamp.sh`: dopisuje `?v=…` do linków CSS/JS, więc telefony pobiorą nową wersję w całości.
+
 ## Podgląd lokalny
 
 Bez ustawionego `apiUrl` strona działa w **trybie demo** (przykładowe prezenty, dane tylko w przeglądarce):
