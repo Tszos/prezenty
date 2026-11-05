@@ -289,3 +289,5 @@ textarea.input { resize: vertical; min-height: 64px; }
 .owner { grid-column: 1 / -1; }
 .owner .link-btn { padding: 4px 0; }
 .owner.confirm { margin-top: 6px; }
+.group.flat .gifts { padding: 0; }
+.group.flat .gift:first-child { border-top: 0; }

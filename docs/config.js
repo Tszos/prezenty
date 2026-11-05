@@ -3,6 +3,9 @@ window.GIFT_CONFIG = {
   // Opcjonalny nadtytuł nad nagłówkiem, np. „Urodziny 2027”. Pusty = tylko ikona prezentu.
   occasion: "",
 
+  // Podział listy na grupy cenowe (do 100 zł, 100–300 zł…). Ma sens, gdy większość prezentów ma cenę.
+  groupByPrice: false,
+
   // Jedna pozycja na osobę. Klucz to nazwa folderu w docs/ (np. docs/ania/index.html),
   // a kolejność tutaj to kolejność na stronie wyboru.
   people: {

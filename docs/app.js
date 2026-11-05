@@ -131,6 +131,18 @@
     p.setAttribute("stroke-width", "2.2"); p.setAttribute("stroke-linecap", "round"); p.setAttribute("stroke-linejoin", "round");
     s.appendChild(p); return s;
   }
+  // Linki w opisie (np. drugi sklep) jako krótkie, klikalne „tchibo.pl ↗” zamiast długiego adresu.
+  function linkify(text) {
+    var out = [], re = /https?:\/\/[^\s)]+/g, last = 0, m;
+    while ((m = re.exec(text))) {
+      if (m.index > last) out.push(text.slice(last, m.index));
+      var host = m[0].replace(/^https?:\/\/(www\.)?/i, "").split(/[\/?#]/)[0];
+      out.push(el("a", { class: "shop", href: m[0], target: "_blank", rel: "noopener noreferrer", text: host + " ↗" }));
+      last = m.index + m[0].length;
+    }
+    if (last < text.length) out.push(text.slice(last));
+    return out;
+  }
   function safeUrl(u) { return typeof u === "string" && /^https?:\/\//i.test(u) ? u : null; }
   function str(v) { return v === null || v === undefined ? "" : String(v); }
   function plural(n, one, few, many) {
@@ -216,6 +228,11 @@
     if (!S.loaded) { if (!S.error) box.appendChild(el("p", { class: "empty", text: "Ładuję listę…" })); return; }
     if (!S.items.length) { box.appendChild(el("p", { class: "empty", text: "Lista jest jeszcze pusta." })); return; }
 
+    // Bez podziału cenowego (domyślnie): jedna lista w kolejności z arkusza.
+    if (!CFG.groupByPrice || !PRICE) {
+      box.appendChild(el("div", { class: "group flat" }, [el("ul", { class: "gifts", "aria-label": "Prezenty" }, S.items.map(card))]));
+      return;
+    }
     var byKey = {};
     S.items.forEach(function (it) { var k = PRICE.groupOf(it.price); (byKey[k] = byKey[k] || []).push(it); });
     PRICE.GROUPS.forEach(function (g) { if (byKey[g.key]) box.appendChild(group(g, byKey[g.key])); });
@@ -292,7 +309,7 @@
     return el("li", { class: "gift" + (c ? " taken" : "") + (mine ? " mine" : "") }, [
       el("div", { class: "info" }, [
         el("h3", { text: title }),
-        it.desc ? el("p", { class: "desc", text: it.desc }) : null,
+        it.desc ? el("p", { class: "desc" }, linkify(it.desc)) : null,
         el("div", { class: "meta" }, [
           it.price ? el("span", { class: "price", text: it.price }) : null,
           url ? el("a", { class: "shop", href: url, target: "_blank", rel: "noopener noreferrer", text: "Zobacz w " + (it.shop || "sklepie") + " ↗" }) : null
