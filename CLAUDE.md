@@ -11,3 +11,6 @@ Gift list site: static `docs/` on GitHub Pages + one Google Sheet and Apps Scrip
 - PUBLIC repo (Pages needs it): admin keys and setup links live only in git-ignored
   `setup-links.local.md`. Never commit, print or paste them.
 - No accounts for visitors by design; reservations are tied to an anonymous localStorage token.
+
+## Long-term memory
+@~/personal-bootstrap/memory/projects/present-list.md
