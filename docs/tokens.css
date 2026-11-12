@@ -1,0 +1,122 @@
+/* Domowy — generated from tokens.json by build.py. Do not edit by hand. */
+:root, [data-theme="light"] {
+  --paper: #F3EEEA;
+  --surface: #FBF8F5;
+  --surface-sunk: #EBE3DE;
+  --line: #DDD2CC;
+  --ink: #2A1E24;
+  --ink-muted: #6B5D64;
+  --accent: #7A4F5C;
+  --accent-edge: #7A4F5C;
+  --accent-ink: #FBF5F6;
+  --accent-strong: #46283A;
+  --accent-strong-ink: #F6EEF0;
+  --accent-soft: #EADCDF;
+  --mark: #7A4F5C;
+  --mark-ink: #FBF5F6;
+  --note: #46283A;
+  --note-soft: #EADCDF;
+  --good: #3F5644;
+  --good-soft: #E2E9E2;
+  --warn: #7D5310;
+  --warn-soft: #F4E8D4;
+  --bad: #9E2B3A;
+  --bad-soft: #F6DEE1;
+  --glow-1: #EADCDF;
+  --glow-2: #E8E0D7;
+  --glow-3: #E2E9E2;
+  --star: #ECE7E3;
+  --shadow-card: 0 1px 2px rgba(42,30,36,0.06), 0 10px 28px -18px rgba(42,30,36,0.25);
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 22px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-pill: 999px;
+  --font-display: "Cormorant Garamond", Georgia, "Times New Roman", serif;
+  --font-sans: Jost, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --fs-display: 2.5rem;
+  --lh-display: 1.1;
+  --fs-title: 1.875rem;
+  --lh-title: 1.133;
+  --fs-amount: 3.25rem;
+  --lh-amount: 1;
+  --fs-heading: 1.125rem;
+  --lh-heading: 1.333;
+  --fs-body: 1.0625rem;
+  --lh-body: 1.412;
+  --fs-small: 0.875rem;
+  --lh-small: 1.429;
+  --fs-label: 0.9375rem;
+  --lh-label: 1.333;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #0E1216;
+    --surface: #161C21;
+    --surface-sunk: #1F262C;
+    --line: #2A333A;
+    --ink: #ECE7E3;
+    --ink-muted: #A39CA2;
+    --accent: #2E5A44;
+    --accent-edge: #3F7A5C;
+    --accent-ink: #ECE7E3;
+    --accent-strong: #2E5A44;
+    --accent-strong-ink: #ECE7E3;
+    --accent-soft: #1A2A25;
+    --mark: #7CC7A0;
+    --mark-ink: #0E1216;
+    --note: #9A92D4;
+    --note-soft: #23243A;
+    --good: #7CC7A0;
+    --good-soft: #183027;
+    --warn: #E0B25C;
+    --warn-soft: #33291A;
+    --bad: #F2A0A8;
+    --bad-soft: #3B1E24;
+    --glow-1: #7CC7A0;
+    --glow-2: #9A92D4;
+    --glow-3: #5FB3B3;
+    --star: #ECE7E3;
+    --shadow-card: none;
+    color-scheme: dark;
+  }
+}
+
+[data-theme="dark"] {
+  --paper: #0E1216;
+  --surface: #161C21;
+  --surface-sunk: #1F262C;
+  --line: #2A333A;
+  --ink: #ECE7E3;
+  --ink-muted: #A39CA2;
+  --accent: #2E5A44;
+  --accent-edge: #3F7A5C;
+  --accent-ink: #ECE7E3;
+  --accent-strong: #2E5A44;
+  --accent-strong-ink: #ECE7E3;
+  --accent-soft: #1A2A25;
+  --mark: #7CC7A0;
+  --mark-ink: #0E1216;
+  --note: #9A92D4;
+  --note-soft: #23243A;
+  --good: #7CC7A0;
+  --good-soft: #183027;
+  --warn: #E0B25C;
+  --warn-soft: #33291A;
+  --bad: #F2A0A8;
+  --bad-soft: #3B1E24;
+  --glow-1: #7CC7A0;
+  --glow-2: #9A92D4;
+  --glow-3: #5FB3B3;
+  --star: #ECE7E3;
+  --shadow-card: none;
+  color-scheme: dark;
+}

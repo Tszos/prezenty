@@ -1,7 +1,7 @@
 // Minimalny service worker: pozwala zainstalować aplikację i otworzyć formularz bez sieci.
 // Zawsze najpierw sieć (świeża wersja), pamięć podręczna tylko jako zapas.
-var CACHE = "dodaj-v1";
-var SHELL = ["./", "dodaj.js", "manifest.webmanifest", "../style.css", "../config.js", "../price.js", "icons/icon-192.png"];
+var CACHE = "dodaj-v2";
+var SHELL = ["./", "dodaj.js", "manifest.webmanifest", "../tokens.css", "../components.css", "../style.css", "../theme.js", "../icons.svg", "../config.js", "../price.js", "icons/icon-192.png"];
 
 self.addEventListener("install", function (e) {
   e.waitUntil(caches.open(CACHE).then(function (c) { return c.addAll(SHELL); }).then(function () { return self.skipWaiting(); }));

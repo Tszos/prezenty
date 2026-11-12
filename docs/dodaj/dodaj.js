@@ -166,9 +166,9 @@
     document.getElementById("lead").hidden = S.shared && !S.done;
     var notice = document.getElementById("notice");
     notice.textContent = "";
-    if (S.notice) notice.appendChild(el("div", { class: "notice demo", role: "status", text: S.notice }));
+    if (S.notice) notice.appendChild(el("div", { class: "d-notice", role: "status", text: S.notice }));
     var demo = keyed().filter(isDemo);
-    if (demo.length) notice.appendChild(el("div", { class: "notice demo", text: "Tryb demo: lista bez adresu backendu w config.js, prezenty zapisują się tylko w tej przeglądarce." }));
+    if (demo.length) notice.appendChild(el("div", { class: "d-notice", text: "Tryb demo: lista bez adresu backendu w config.js, prezenty zapisują się tylko w tej przeglądarce." }));
 
     var view = document.getElementById("view");
     view.textContent = "";
@@ -184,7 +184,7 @@
   }
 
   function setupIntro() {
-    return el("section", { class: "panel" }, [
+    return el("section", { class: "d-card panel" }, [
       el("h2", { class: "panel-title", text: "Najpierw połącz ten telefon z listą" }),
       el("p", { text: "Do dodawania prezentów potrzebny jest klucz listy. Najprościej otworzyć na tym telefonie link z kluczami. Możesz też wkleić klucz poniżej, w sekcji „Klucze na tym telefonie”." })
     ]);
@@ -237,16 +237,16 @@
         asking ? el("div", { class: "confirm", role: "alert" }, [
           el("p", { text: "Usunąć ten prezent? Jeśli ktoś go zarezerwował, rezerwacja też zniknie." }),
           el("div", { class: "confirm-actions" }, [
-            el("button", { class: "btn-danger", type: "button", id: "confirm-" + it.id, disabled: R.busy, text: R.busy ? "Usuwam…" : "Usuń",
+            el("button", { class: "d-btn btn-danger", type: "button", id: "confirm-" + it.id, disabled: R.busy, text: R.busy ? "Usuwam…" : "Usuń",
               onclick: function () { removeGift(it); } }),
-            el("button", { class: "btn-ghost", type: "button", disabled: R.busy, text: "Anuluj",
+            el("button", { class: "d-btn d-btn--secondary btn-ghost", type: "button", disabled: R.busy, text: "Anuluj",
               onclick: function () { R.confirm = null; render(); } })
           ])
-        ]) : el("button", { class: "btn-ghost btn-small", type: "button", "aria-label": "Usuń: " + (it.title || "Bez nazwy"), text: "Usuń",
+        ]) : el("button", { class: "d-btn d-btn--secondary btn-ghost d-btn--small", type: "button", "aria-label": "Usuń: " + (it.title || "Bez nazwy"), text: "Usuń",
           onclick: function () { R.confirm = it.id; R.error = ""; render(); var b = document.getElementById("confirm-" + it.id); if (b) b.focus(); } })
       ]);
     }));
-    return el("section", { class: "panel remove" }, [
+    return el("section", { class: "d-card panel remove" }, [
       pick,
       R.notice ? el("p", { class: "ok-note", role: "status", text: R.notice }) : null,
       el("div", { class: "err", role: "alert", text: R.error }),
@@ -288,14 +288,14 @@
       f.shop ? el("span", { text: f.shop }) : null,
       f.price ? el("span", { class: "price", text: f.price }) : null
     ]);
-    return el("section", { class: "panel quick" }, [
+    return el("section", { class: "d-card panel quick" }, [
       el("p", { class: "quick-name", text: name }),
       meta.childNodes.length ? meta : null,
       el("p", { class: "hint", role: "status", text: S.preview === "loading" ? "Sprawdzam stronę sklepu…" : "" }),
       el("h2", { class: "quick-label", id: "quick-label", text: "Dodaj do listy:" }),
       el("div", { class: "quick-buttons", role: "group", "aria-labelledby": "quick-label" }, people.map(function (k) {
         var mine = S.busy && S.person === k;
-        return el("button", { class: "btn-primary btn-person", type: "button", disabled: S.busy,
+        return el("button", { class: "d-btn btn-primary btn-person", type: "button", disabled: S.busy,
           "aria-label": "Dodaj do listy " + gen(k), text: mine ? "Dodaję…" : nom(k),
           onclick: function () { S.person = k; lsSet(LAST_LS, k); send(); } });
       })),
@@ -321,7 +321,7 @@
     var status = S.preview === "loading" ? "Sprawdzam stronę sklepu…"
       : S.preview === "done" ? "Uzupełniono dane ze strony sklepu. Sprawdź, czy się zgadzają."
       : "";
-    return el("form", { class: "panel add-form", novalidate: true, onsubmit: submit }, [
+    return el("form", { class: "d-card panel add-form", novalidate: true, onsubmit: submit }, [
       pick,
       people.length === 1 ? el("p", { class: "for-whom", text: "Dodajesz do listy prezentów " + gen(people[0]) + "." }) : null,
       field("title", "Nazwa prezentu", { required: true, maxlength: "120", autocomplete: "off" }),
@@ -331,25 +331,25 @@
       field("url", "Link", { type: "url", maxlength: "500", inputmode: "url", placeholder: "https://…" }),
       el("p", { class: "hint status", role: "status", text: status }),
       el("div", { class: "err", role: "alert", text: S.error }),
-      el("button", { class: "btn-primary btn-wide", type: "submit", disabled: S.busy,
+      el("button", { class: "d-btn btn-primary btn-wide", type: "submit", disabled: S.busy,
         text: S.busy ? "Dodaję…" : "Dodaj do listy " + gen(S.person) })
     ]);
   }
 
   function doneView() {
     var d = S.done;
-    return el("section", { class: "panel done" }, [
+    return el("section", { class: "d-card panel done" }, [
       el("h2", { class: "panel-title", text: "Dodano do listy " + gen(d.person) }),
       el("p", { text: "„" + d.title + "” jest już na liście. Inni zobaczą go w ciągu pół minuty." }),
       d.price ? el("p", { class: "hint", text: "Cena: " + d.price }) : null,
       el("div", { class: "done-actions" }, [
-        el("button", { class: "btn-primary", type: "button", text: "Gotowe", onclick: function () {
+        el("button", { class: "d-btn btn-primary", type: "button", text: "Gotowe", onclick: function () {
           window.close();
           // Gdy okna nie da się zamknąć (zwykła karta), wracamy do pustego formularza.
           setTimeout(function () { location.replace(location.pathname); }, 300);
         } }),
-        el("a", { class: "btn-ghost btn-link", href: "../" + d.person + "/", text: "Zobacz listę " + gen(d.person) }),
-        el("button", { class: "btn-ghost", type: "button", text: "Dodaj kolejny", onclick: function () {
+        el("a", { class: "d-btn d-btn--secondary btn-ghost btn-link", href: "../" + d.person + "/", text: "Zobacz listę " + gen(d.person) }),
+        el("button", { class: "d-btn d-btn--secondary btn-ghost", type: "button", text: "Dodaj kolejny", onclick: function () {
           S.done = null; S.form = { title: "", price: "", desc: "", shop: "", url: "" }; S.touched = {}; S.preview = "";
           S.shared = false; S.editing = false;
           history.replaceState(null, "", location.pathname); render();
@@ -365,7 +365,7 @@
       return el("li", { class: "key-row" }, [
         el("span", { class: "key-name", text: "Lista " + gen(k) }),
         el("span", { class: has ? "key-ok" : "key-missing", text: has ? "połączona" : "brak klucza" }),
-        has ? el("button", { class: "btn-ghost btn-small", type: "button", "aria-label": "Usuń klucz listy " + gen(k), text: "Usuń",
+        has ? el("button", { class: "d-btn d-btn--secondary btn-ghost d-btn--small", type: "button", "aria-label": "Usuń klucz listy " + gen(k), text: "Usuń",
           onclick: function () { delete S.keys[k]; saveKeys(); render(); } }) : null
       ]);
     });
@@ -375,7 +375,7 @@
     var inp = el("input", { id: "k-value", class: "input", autocomplete: "off", spellcheck: "false", placeholder: "Wklej klucz" });
     var msg = el("p", { class: "err", role: "alert" });
     var open = !keyed().length;
-    return el("details", { class: "panel settings", open: open }, [
+    return el("details", { class: "d-card panel settings", open: open }, [
       el("summary", { text: "Klucze na tym telefonie" }),
       el("ul", { class: "keys" }, rows),
       el("form", { class: "key-form", onsubmit: function (e) {
@@ -392,7 +392,7 @@
       } }, [
         el("label", { for: "k-person", text: "Lista" }), sel,
         el("label", { for: "k-value", text: "Klucz" }), inp,
-        el("button", { class: "btn-ghost", type: "submit", text: "Zapisz klucz" }),
+        el("button", { class: "d-btn d-btn--secondary btn-ghost", type: "submit", text: "Zapisz klucz" }),
         msg
       ])
     ]);

@@ -1,0 +1,209 @@
+/* Domowy (Klasyk) components. Plain CSS; every color and type size comes from tokens.css.
+   Fonts are linked from each app's <head> (see README), not imported here. */
+
+/* ---------- day / night knobs that are not colors ---------- */
+:root { --glow-strength: 70%; --night: 0; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --glow-strength: 34%; --night: 1; }
+}
+[data-theme="dark"] { --glow-strength: 34%; --night: 1; }
+
+/* ---------- page and type ---------- */
+.d-page {
+  background: var(--paper); color: var(--ink);
+  font-family: var(--font-sans); font-size: var(--fs-body); line-height: var(--lh-body);
+  -webkit-font-smoothing: antialiased;
+  caret-color: var(--mark); accent-color: var(--mark);
+}
+.d-page ::selection { background: var(--accent-soft); color: var(--ink); }
+.d-display { margin: 0; font-family: var(--font-display); font-weight: 500; font-size: var(--fs-display); line-height: var(--lh-display); text-wrap: balance; }
+.d-title { margin: 0; font-family: var(--font-display); font-weight: 500; font-size: var(--fs-title); line-height: var(--lh-title); text-wrap: balance; }
+/* The big number shrinks on narrow or zoomed screens instead of breaking apart. */
+.d-amount {
+  font-family: var(--font-display); font-weight: 600; font-size: min(var(--fs-amount), 13.5vw); line-height: var(--lh-amount);
+  font-variant-numeric: lining-nums tabular-nums; white-space: nowrap;
+}
+.d-muted { color: var(--ink-muted); }
+.d-small { font-size: var(--fs-small); line-height: var(--lh-small); }
+.d-num { font-variant-numeric: tabular-nums; font-weight: 500; white-space: nowrap; }
+
+:where(.d-btn, .d-chip, .d-check, .d-theme-toggle, .d-field input, .d-field select, .d-add input, .d-toast__action):focus-visible {
+  outline: 2px solid var(--mark); outline-offset: 2px;
+}
+
+/* ---------- header: notebook by day, night sky with aurora by night ---------- */
+.d-header {
+  position: relative; display: grid; gap: var(--space-3);
+  padding: 26px var(--space-5) 14px;
+  background:
+    radial-gradient(110% 80% at 15% -10%, color-mix(in srgb, var(--glow-1) var(--glow-strength), transparent), transparent 62%),
+    radial-gradient(80% 70% at 90% -5%, color-mix(in srgb, var(--glow-2) var(--glow-strength), transparent), transparent 64%),
+    radial-gradient(70% 60% at 55% -20%, color-mix(in srgb, var(--glow-3) var(--glow-strength), transparent), transparent 60%);
+}
+.d-header > * { position: relative; }
+/* No label above the title: the title opens the screen, the theme switch sits beside it.
+   An optional one-line subtitle goes under the title, in full ink (faded ink drops below
+   4.5:1 over the brightest aurora). */
+.d-header__bar { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); }
+.d-subtitle { margin: calc(-1 * var(--space-2)) 0 0; font-size: var(--fs-small); line-height: var(--lh-small); color: var(--ink); }
+.d-stars { position: absolute !important; inset: 0; width: 100%; height: 100%; pointer-events: none; fill: var(--star); opacity: var(--night); }
+
+/* ---------- theme switch: moon by day, sun by night ---------- */
+.d-theme-toggle {
+  width: 44px; height: 44px; margin: -10px -10px -10px 0; display: grid; place-items: center; flex: none;
+  border: 0; border-radius: var(--radius-pill); background: transparent; color: var(--ink-muted); cursor: pointer;
+}
+.d-theme-toggle svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+.d-theme-toggle .d-sun { display: none; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .d-theme-toggle .d-sun { display: block; }
+  :root:not([data-theme="light"]) .d-theme-toggle .d-moon { display: none; }
+}
+[data-theme="dark"] .d-theme-toggle .d-sun { display: block; }
+[data-theme="dark"] .d-theme-toggle .d-moon { display: none; }
+
+/* ---------- button ---------- */
+.d-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2);
+  min-height: 48px; padding: 0 22px; border-radius: var(--radius-pill);
+  border: 1px solid var(--accent-edge); background: var(--accent); color: var(--accent-ink);
+  font-family: var(--font-sans); font-weight: 500; font-size: var(--fs-label); line-height: var(--lh-label);
+  letter-spacing: .04em; text-align: center; text-wrap: balance; max-width: 100%; padding-block: 4px; cursor: pointer;
+}
+.d-btn:hover { filter: brightness(1.07); }
+.d-btn--secondary { background: var(--surface); color: var(--ink); border-color: var(--ink-muted); }
+.d-btn--quiet { background: transparent; color: var(--ink); border-color: transparent; padding: 0 var(--space-3); }
+/* Small = narrower, not shorter: it still meets the 44px tap target. */
+.d-btn--small { min-height: 44px; padding: 0 18px; }
+.d-btn:disabled { opacity: .45; cursor: not-allowed; filter: none; }
+/* Busy: the app also changes the label, e.g. "Zapisuję…". */
+.d-btn[aria-busy="true"] { cursor: progress; filter: saturate(.6); }
+
+/* ---------- chip (filters, shops, people) ---------- */
+.d-chips { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.d-chip {
+  position: relative; min-height: 36px; padding: 0 14px; border-radius: var(--radius-pill);
+  border: 1px solid var(--ink-muted); background: var(--surface); color: var(--ink);
+  font-family: var(--font-sans); font-weight: 500; font-size: var(--fs-small); line-height: var(--lh-small);
+  white-space: nowrap; cursor: pointer;
+}
+/* The pill stays 36px; the tap area reaches 44px (4px above and below, within the 8px row gap). */
+.d-chip::after { content: ""; position: absolute; inset: -4px 0; }
+.d-chip:hover { border-color: var(--ink); }
+.d-chip[aria-pressed="true"] { background: var(--accent-strong); border-color: var(--accent-edge); color: var(--accent-strong-ink); }
+
+/* ---------- list item with checkbox and product icon ---------- */
+/* Apps move ticked rows to the end of the list in the DOM (not with CSS order), so reading
+   and tab order match what is on screen. */
+.d-list { display: flex; flex-direction: column; min-width: 0; container-type: inline-size; }
+.d-item__name { flex: 1 1 auto; min-width: 0; overflow-wrap: break-word; hyphens: auto; }
+.d-item { display: flex; align-items: center; gap: var(--space-3); min-height: 54px; border-bottom: 1px solid var(--line); font-size: var(--fs-body); }
+.d-item__qty { margin-left: auto; font-size: var(--fs-small); color: var(--ink-muted); white-space: nowrap; }
+.d-check {
+  appearance: none; -webkit-appearance: none; margin: 0; flex: none; cursor: pointer;
+  width: 22px; height: 22px; border-radius: var(--radius-sm); border: 1.5px solid var(--mark);
+  display: grid; place-items: center; background: transparent;
+}
+.d-check::after { content: ""; width: 5px; height: 10px; margin-top: -2px; border: solid var(--mark-ink); border-width: 0 2px 2px 0; transform: rotate(45deg); opacity: 0; }
+.d-check:checked { background: var(--mark); }
+.d-check:checked::after { opacity: 1; }
+.d-icon { width: 34px; height: 34px; flex: none; border-radius: var(--radius-md); background: var(--accent-soft); color: var(--mark); display: grid; place-items: center; }
+.d-icon svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+/* Done state follows the checkbox by itself; d-item--done is for rows without one. */
+.d-item--done .d-item__name, .d-item:has(.d-check:checked) .d-item__name { color: var(--ink-muted); text-decoration: line-through; }
+.d-item:has(.d-check:checked) .d-icon { opacity: .5; }
+.d-item--done .d-icon { opacity: .5; }
+/* Very narrow or zoomed in (about 200% on a phone): drop the icon tile and let the quantity
+   go under the name, so names keep whole words. */
+@container (max-width: 260px) {
+  .d-item .d-icon { display: none; }
+  .d-item { flex-wrap: wrap; column-gap: var(--space-3); padding-block: 6px; }
+  .d-item__name { flex-basis: 5em; }
+}
+
+/* ---------- add bar (bottom of a list) ---------- */
+/* On very narrow or zoomed screens the button drops under the field instead of squashing it. */
+.d-add { display: flex; flex-wrap: wrap; gap: 10px; padding: 14px var(--space-5) 26px; border-top: 1px solid var(--line); background: var(--surface); }
+.d-add input {
+  flex: 1 1 9em; min-width: 0; min-height: 48px; padding: 0 18px; border-radius: var(--radius-pill);
+  border: 1px solid var(--ink-muted); background: var(--paper); color: var(--ink);
+  font-family: var(--font-sans); font-size: max(1rem, 16px); /* 16px+ stops phones zooming in */
+}
+.d-add .d-btn { margin-left: auto; }
+.d-add input::placeholder { color: var(--ink-muted); }
+
+/* ---------- card ---------- */
+.d-card {
+  display: grid; gap: 10px; min-width: 0; padding: var(--space-4);
+  background: var(--surface); color: var(--ink);
+  border: 1px solid var(--line); border-radius: var(--radius-lg); box-shadow: var(--shadow-card);
+}
+.d-card > h3 { margin: 0; overflow-wrap: break-word; font-size: var(--fs-heading); line-height: var(--lh-heading); font-weight: 500; }
+/* Label left, value right; on narrow or zoomed screens the value drops to its own line, still right-aligned. */
+.d-row { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; column-gap: var(--space-3); row-gap: 2px; }
+.d-row > :last-child { margin-left: auto; }
+
+/* ---------- progress ----------
+   Give each bar role="progressbar", aria-valuenow/min/max and an aria-label naming what it measures. */
+.d-progress { height: 6px; border-radius: var(--radius-pill); background: var(--surface-sunk); overflow: hidden; }
+.d-progress > span { display: block; height: 100%; border-radius: inherit; background: var(--mark); }
+.d-progress--note > span { background: var(--note); }  /* a neutral second series */
+.d-progress--warn > span { background: var(--warn); }  /* close to the limit */
+.d-progress--bad > span { background: var(--bad); }    /* over the limit */
+
+/* ---------- tag ---------- */
+.d-tag {
+  display: inline-flex; align-items: center; align-self: flex-start; justify-self: start;
+  min-height: 26px; padding: 0 12px; border-radius: var(--radius-pill);
+  font-size: .75rem; line-height: 1.333; font-weight: 500; letter-spacing: .12em; text-transform: uppercase;
+  background: var(--surface-sunk); color: var(--ink);
+}
+.d-tag--note { background: var(--note-soft); color: var(--note); }
+.d-tag--good { background: var(--good-soft); color: var(--good); }
+.d-tag--warn { background: var(--warn-soft); color: var(--warn); }
+.d-tag--bad { background: var(--bad-soft); color: var(--bad); }
+
+/* ---------- field ---------- */
+.d-field { display: grid; gap: var(--space-1); }
+.d-field > label { font-size: var(--fs-small); line-height: var(--lh-small); font-weight: 500; }
+.d-field input, .d-field select {
+  min-height: 48px; padding: 0 14px; border-radius: var(--radius-md); width: 100%; box-sizing: border-box;
+  border: 1px solid var(--ink-muted); background: var(--surface); color: var(--ink);
+  font-family: var(--font-sans); font-size: var(--fs-body);
+}
+.d-field input::placeholder { color: var(--ink-muted); }
+.d-hint { font-size: var(--fs-small); line-height: var(--lh-small); color: var(--ink-muted); }
+.d-field--error input, .d-field--error select { border-color: var(--bad); }
+.d-field--error .d-hint { color: var(--bad); }
+
+/* ---------- notice ---------- */
+.d-notice { padding: 12px var(--space-4); border-radius: var(--radius-lg); font-size: var(--fs-label); line-height: var(--lh-label); background: var(--surface-sunk); color: var(--ink); }
+.d-notice--good { background: var(--good-soft); color: var(--good); }
+.d-notice--warn { background: var(--warn-soft); color: var(--warn); }
+.d-notice--bad { background: var(--bad-soft); color: var(--bad); }
+
+/* ---------- empty state ---------- */
+.d-empty { min-width: 0; display: grid; justify-items: center; gap: var(--space-2); padding: var(--space-6) var(--space-4); text-align: center; }
+.d-empty .d-icon { width: 48px; height: 48px; border-radius: var(--radius-lg); margin-bottom: var(--space-1); }
+.d-empty .d-icon svg { width: 26px; height: 26px; }
+.d-empty__title { margin: 0; font-size: var(--fs-heading); line-height: var(--lh-heading); font-weight: 500; }
+.d-empty__text { margin: 0; max-width: 30ch; font-size: var(--fs-small); line-height: var(--lh-small); color: var(--ink-muted); }
+.d-empty .d-btn { margin-top: var(--space-2); }
+
+/* ---------- toast with undo ----------
+   After ticking, reserving or deleting, show this instead of asking "are you sure?".
+   Put it in a role="status" container so screen readers announce it. Same surface at night: no bright pop-up. */
+.d-toast {
+  display: flex; align-items: center; gap: var(--space-3); min-height: 52px; padding: 4px 6px 4px var(--space-4);
+  border: 1px solid var(--line); border-radius: var(--radius-lg); background: var(--surface); color: var(--ink);
+  box-shadow: var(--shadow-card); font-size: var(--fs-small); line-height: var(--lh-small);
+}
+.d-toast__text { flex: 1; min-width: 0; }
+.d-toast__action {
+  flex: none; min-height: 44px; padding: 0 var(--space-3); border: 0; border-radius: var(--radius-pill);
+  background: transparent; color: var(--ink); cursor: pointer;
+  font-family: var(--font-sans); font-weight: 500; font-size: var(--fs-label); text-decoration: underline; text-underline-offset: 3px;
+}
+.d-toast__action:hover { background: var(--surface-sunk); }
+
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }

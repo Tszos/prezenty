@@ -6,25 +6,28 @@
 <title>Lista prezentów</title>
 <meta name="robots" content="noindex">
 <meta name="color-scheme" content="light dark">
-<meta name="theme-color" content="#16204A">
+<meta name="theme-color" content="#F3EEEA" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0E1216" media="(prefers-color-scheme: dark)">
+<script src="../theme.js?v=202611121717"></script>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎁</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Gloock&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="../style.css?v=202611051557">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Jost:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../tokens.css?v=202611121717">
+<link rel="stylesheet" href="../components.css?v=202611121717">
+<link rel="stylesheet" href="../style.css?v=202611121717">
 </head>
-<body data-person="mikolaj">
-<header class="hero">
+<body class="d-page" data-person="mikolaj">
+<header class="d-header hero">
   <div class="hero-inner">
-    <p class="occasion">
-      <svg class="mark" viewBox="0 0 48 48" aria-hidden="true" focusable="false">
-        <path d="M24 16C18 5 8 9 14 16ZM24 16C30 5 40 9 34 16Z"/>
-        <rect x="5" y="16" width="17" height="8" rx="2"/><rect x="26" y="16" width="17" height="8" rx="2"/>
-        <rect x="8" y="26" width="14" height="18" rx="2"/><rect x="26" y="26" width="14" height="18" rx="2"/>
-      </svg>
-      <span id="occasion"></span>
-    </p>
-    <h1 id="title">Lista prezentów</h1>
+    <div class="d-header__bar">
+      <h1 id="title">Lista prezentów</h1>
+      <button type="button" class="d-theme-toggle" data-theme-toggle aria-label="Zmień motyw">
+        <svg class="d-moon" aria-hidden="true"><use href="../icons.svg#i-moon"/></svg>
+        <svg class="d-sun" aria-hidden="true"><use href="../icons.svg#i-sun"/></svg>
+      </button>
+    </div>
+    <p class="d-subtitle occasion" id="occasion"></p>
     <p class="lead">Wybierz coś z listy i kliknij „Rezerwuję”. Inni zobaczą, że prezent jest zajęty, więc nikt nie kupi tego samego.</p>
     <p class="summary" id="summary" aria-live="polite"></p>
   </div>
@@ -38,8 +41,8 @@
   <button type="button" class="link-btn" id="surprise-toggle"></button>
   <nav class="others" id="others" aria-label="Inne listy prezentów"></nav>
 </footer>
-<script src="../config.js?v=202611051557"></script>
-<script src="../price.js?v=202611051557"></script>
-<script src="../app.js?v=202611051557"></script>
+<script src="../config.js?v=202611121717"></script>
+<script src="../price.js?v=202611121717"></script>
+<script src="../app.js?v=202611121717"></script>
 </body>
 </html>

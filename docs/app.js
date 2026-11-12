@@ -218,8 +218,8 @@
   function renderNotice() {
     var box = document.getElementById("notice");
     box.textContent = "";
-    if (S.error) box.appendChild(el("div", { class: "notice", role: "alert", text: S.error }));
-    if (DEMO && PEOPLE[PERSON]) box.appendChild(el("div", { class: "notice demo", text: "Tryb demo: brak adresu backendu w config.js, więc rezerwacje zapisują się tylko w tej przeglądarce." }));
+    if (S.error) box.appendChild(el("div", { class: "d-notice d-notice--bad", role: "alert", text: S.error }));
+    if (DEMO && PEOPLE[PERSON]) box.appendChild(el("div", { class: "d-notice", text: "Tryb demo: brak adresu backendu w config.js, więc rezerwacje zapisują się tylko w tej przeglądarce." }));
   }
 
   function renderGroups() {
@@ -272,14 +272,14 @@
     if (mine) {
       act.appendChild(el("span", { class: "tag-mine" + (S.justClaimed === it.id ? " pop" : "") }, [icon("", "M5 12.5l4.5 4.5L19 7.5"), "Twoja rezerwacja"]));
       act.appendChild(el("button", {
-        class: "btn-ghost", type: "button", disabled: busy, "data-focus": "unclaim:" + it.id,
+        class: "d-btn d-btn--secondary btn-ghost", type: "button", disabled: busy, "data-focus": "unclaim:" + it.id,
         "aria-label": "Anuluj rezerwację: " + title,
         text: busy ? "Anuluję…" : "Anuluj rezerwację", onclick: function () { unclaim(it.id); }
       }));
     } else if (c) {
       var who = str(c.name).trim();
       act.appendChild(el("div", { class: "who" }, [
-        el("span", { class: "tag-taken", text: "Zajęte" }),
+        el("span", { class: "d-tag", text: "Zajęte" }),
         who ? el("span", { text: "Kupuje: " + who }) : null
       ]));
     } else if (!S.surprise) {
@@ -293,13 +293,13 @@
         form = el("form", { class: "claim-form" + (S.formFresh ? " enter" : ""), onsubmit: function (e) { e.preventDefault(); claim(it.id, inp.value.trim()); } }, [
           el("label", { for: "name-" + it.id, text: "Jak się podpiszesz? Zobaczą to inne osoby z listy (" + OWNER_NOM + " może to ukryć)." }),
           inp,
-          el("button", { class: "btn-primary", type: "submit", disabled: busy, "data-focus": "confirm:" + it.id, text: busy ? "Rezerwuję…" : "Potwierdź" }),
-          el("button", { class: "btn-ghost", type: "button", "data-focus": "close:" + it.id, text: "Zamknij", onclick: function () { closeForm(it.id); } }),
+          el("button", { class: "d-btn btn-primary", type: "submit", disabled: busy, "data-focus": "confirm:" + it.id, text: busy ? "Rezerwuję…" : "Potwierdź" }),
+          el("button", { class: "d-btn d-btn--secondary btn-ghost", type: "button", "data-focus": "close:" + it.id, text: "Zamknij", onclick: function () { closeForm(it.id); } }),
           el("div", { class: "err", role: "alert", text: S.claimErr && S.claimErr.id === it.id ? S.claimErr.msg : "" })
         ]);
       } else {
         act.appendChild(el("button", {
-          class: "btn-primary", type: "button", "data-focus": "claim:" + it.id,
+          class: "d-btn btn-primary", type: "button", "data-focus": "claim:" + it.id,
           "aria-label": "Rezerwuję: " + title, text: "Rezerwuję",
           onclick: function () { openForm(it.id); }
         }));
@@ -336,9 +336,9 @@
     return el("div", { class: "owner confirm", role: "alert" }, [
       el("p", { text: "Usunąć ten prezent z listy? Jeśli ktoś go zarezerwował, rezerwacja też zniknie." }),
       el("div", { class: "confirm-actions" }, [
-        el("button", { class: "btn-danger", type: "button", id: "rmok-" + it.id, "data-focus": "rmok:" + it.id, disabled: busy,
+        el("button", { class: "d-btn btn-danger", type: "button", id: "rmok-" + it.id, "data-focus": "rmok:" + it.id, disabled: busy,
           text: busy ? "Usuwam…" : "Usuń", onclick: function () { removeGift(it.id); } }),
-        el("button", { class: "btn-ghost", type: "button", disabled: busy, text: "Anuluj",
+        el("button", { class: "d-btn d-btn--secondary btn-ghost", type: "button", disabled: busy, text: "Anuluj",
           onclick: function () { S.confirmRemove = null; render(); var b = document.querySelector('[data-focus="rm:' + it.id + '"]'); if (b) b.focus(); } })
       ])
     ]);
