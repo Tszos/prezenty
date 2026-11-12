@@ -199,6 +199,10 @@ textarea.input { resize: vertical; min-height: 72px; padding-block: 10px; }
 .owner:not(.confirm) { display: flex; flex-wrap: wrap; gap: 0 var(--space-4); }
 .owner .link-btn { padding-left: 0; padding-right: 0; }
 .link-btn:disabled { opacity: .4; text-decoration: none; cursor: default; }
+.owner.edit-form { display: grid; gap: var(--space-3); margin-top: var(--space-2); padding: var(--space-4); border-radius: var(--radius-lg); background: var(--paper); }
+.edit-form.enter { animation: slide .28s ease-out; }
+.edit-form textarea.input { font-size: max(var(--fs-body), 16px); }
+.check-row { display: flex; align-items: center; gap: var(--space-2); min-height: 44px; font-size: var(--fs-small); font-weight: 500; cursor: pointer; }
 .owner.confirm { margin-top: 6px; }
 .group.flat .gift:first-child { border-top: 0; }
 

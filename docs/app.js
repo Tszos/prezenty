@@ -28,11 +28,17 @@
   var TOKEN = lsGet("gift-token");
   if (!TOKEN || TOKEN.length < 16) { TOKEN = randomToken(); lsSet("gift-token", TOKEN); }
 
+  // Właściciel listy (ma jej klucz) zawsze startuje w trybie niespodzianki; „Pokaż rezerwacje”
+  // działa u niego tylko do zamknięcia karty, żeby nie zobaczył ich przypadkiem przy następnej wizycie.
+  function ssGet(k) { try { return sessionStorage.getItem(k); } catch (e) { return null; } }
+  function ssSet(k, v) { try { sessionStorage.setItem(k, v); } catch (e) {} }
+  var OWNER = !!adminKey();
   var S = {
     items: [], claims: {}, loaded: false, error: "", busy: {}, claimErr: null,
     openClaim: null, draft: "", formFresh: false, justClaimed: null,
+    edit: null,           // szkic edycji prezentu przez właściciela: { id, title, …, err }
     myName: lsGet("gift-name") || "",
-    surprise: lsGet(pk("gift-surprise")) === "1",
+    surprise: OWNER ? ssGet("gift-show:" + PERSON) !== "1" : lsGet(pk("gift-surprise")) === "1",
     // Stan rozwinięcia grup: { klucz: false } = zwinięta. Domyślnie wszystkie rozwinięte.
     groupsOpen: lsJson(pk("gift-groups")) || {}
   };
@@ -61,24 +67,30 @@
   // Tryb demo: wszystko w localStorage, żeby można było obejrzeć stronę bez backendu.
   function demoApi() {
     var KEY = pk("gift-demo-v2");
+    // Rezerwacje: { id: [{ name, token }, …] }. Starszy zapis (jeden obiekt) zamieniamy na listę.
     function load() {
       var d = lsJson(KEY);
-      if (d && d.items) return d;
+      if (d && d.items) {
+        Object.keys(d.claims || {}).forEach(function (id) { if (!Array.isArray(d.claims[id])) d.claims[id] = [d.claims[id]]; });
+        d.claims = d.claims || {};
+        return d;
+      }
       return {
         items: [
           { id: "a1", title: "Kubek termiczny", desc: "Najlepiej zielony, ok. 450 ml", price: "ok. 120 zł", shop: "Allegro", url: "https://allegro.pl" },
           { id: "a2", title: "Książka „Projekt Hail Mary”", desc: "Andy Weir, wydanie w twardej oprawie", price: "ok. 55 zł", shop: "Empik", url: "https://www.empik.com" },
           { id: "a3", title: "Skarpetki w lisy", desc: "Rozmiar 43–46", price: "ok. 30 zł", shop: "", url: "" },
           { id: "a4", title: "Słuchawki bezprzewodowe", desc: "Nauszne, z redukcją szumów", price: "ok. 350–420 zł", shop: "Media Expert", url: "https://www.mediaexpert.pl" },
-          { id: "a5", title: "Ekspres przelewowy", desc: "Z termosem zamiast szklanego dzbanka", price: "ok. 950–1150 zł", shop: "", url: "https://www.ceneo.pl" },
+          { id: "a5", title: "Ekspres przelewowy", desc: "Z termosem zamiast szklanego dzbanka", price: "ok. 950–1150 zł", shop: "", url: "https://www.ceneo.pl", group: true },
           { id: "a6", title: "Gra planszowa „Wsiąść do pociągu: Europa”", desc: "", price: "ok. 100 zł", shop: "Rebel", url: "https://www.rebel.pl" },
           { id: "a7", title: "Plecak na rower", desc: "Wodoodporny, 20–25 l", price: "1149,99 zł", shop: "Decathlon", url: "https://www.decathlon.pl" },
           { id: "a8", title: "Kurs ceramiki dla dwojga", desc: "Dowolna pracownia w Warszawie", price: "ok. 280 zł", shop: "", url: "" },
           { id: "a9", title: "Niespodzianka", desc: "Coś, co Twoim zdaniem mi się spodoba", price: "", shop: "", url: "" }
         ],
         claims: {
-          a2: { name: "Ciocia Basia", token: "someone-else-token" },
-          a4: { name: "Marek", token: "another-token" }
+          a2: [{ name: "Ciocia Basia", token: "someone-else-token" }],
+          a4: [{ name: "Marek", token: "another-token" }],
+          a5: [{ name: "Ania", token: "third-token" }, { name: "Wujek Staszek", token: "fourth-token" }]
         }
       };
     }
@@ -87,11 +99,20 @@
     return {
       list: function () {
         var d = load(), claims = {};
-        Object.keys(d.claims).forEach(function (id) { claims[id] = { name: d.claims[id].name, mine: d.claims[id].token === TOKEN }; });
-        return later({ ok: true, items: d.items, claims: claims });
+        var items = d.items.map(function (it) { var x = {}; for (var k in it) x[k] = it[k]; return x; });
+        items.forEach(function (it) {
+          var rs = d.claims[it.id];
+          if (!rs || !rs.length) return;
+          if (rs.length > 1) it.group = true;
+          var people = rs.map(function (c) { return { name: c.name, mine: c.token === TOKEN }; });
+          claims[it.id] = { name: people.map(function (p) { return p.name; }).join(", "), mine: people.some(function (p) { return p.mine; }), people: people };
+        });
+        return later({ ok: true, items: items, claims: claims });
       },
       post: function (b) {
-        var d = load(), c = d.claims[b.id];
+        var d = load(), rs = d.claims[b.id] || [];
+        var mine = rs.filter(function (c) { return c.token === TOKEN; })[0];
+        var item = d.items.filter(function (x) { return x.id === b.id; })[0];
         if (b.action === "remove") {
           if (b.key !== "demo") return later({ ok: false, error: "bad_key" });
           d.items = d.items.filter(function (it) { return it.id !== b.id; });
@@ -103,12 +124,20 @@
           d.items = d.items.filter(function (x) { return x !== it; });
           var at = b.before ? d.items.map(function (x) { return x.id; }).indexOf(b.before) : -1;
           d.items.splice(at < 0 ? d.items.length : at, 0, it);
+        } else if (b.action === "edit") {
+          if (b.key !== "demo") return later({ ok: false, error: "bad_key" });
+          if (!item) return later({ ok: false, error: "not_found" });
+          if (!String(b.title || "").trim()) return later({ ok: false, error: "no_title" });
+          ["title", "desc", "price", "shop", "url"].forEach(function (k) { item[k] = String(b[k] || "").trim(); });
+          item.group = b.group === true;
         } else if (b.action === "claim") {
-          if (c && c.token !== TOKEN) return later({ ok: false, error: "taken" });
-          d.claims[b.id] = { name: b.name, token: TOKEN };
+          if (!item) return later({ ok: false, error: "not_found" });
+          if (mine) mine.name = b.name;
+          else if (rs.length && !item.group && rs.length < 2) return later({ ok: false, error: "taken" });
+          else d.claims[b.id] = rs.concat([{ name: b.name, token: TOKEN }]);
         } else if (b.action === "unclaim") {
-          if (!c || c.token !== TOKEN) return later({ ok: false, error: "not_yours" });
-          delete d.claims[b.id];
+          if (!mine) return later({ ok: false, error: "not_yours" });
+          d.claims[b.id] = rs.filter(function (c) { return c !== mine; });
         }
         save(d); return later({ ok: true });
       }
@@ -159,6 +188,8 @@
   }
   function gifts(n) { return n + " " + plural(n, "prezent", "prezenty", "prezentów"); }
   function claimOf(id) { return S.surprise ? null : (S.claims[id] || null); }
+  // Składka nigdy nie jest „zajęta”: zawsze można się dołożyć.
+  function taken(it) { return !it.group && !!claimOf(it.id); }
   function isOpen(key) { return S.groupsOpen[key] !== false; }
 
   // ---------- render ----------
@@ -171,7 +202,8 @@
     document.getElementById("title").textContent = "Lista prezentów " + OWNER_GEN;
     document.getElementById("occasion").textContent = CFG.occasion || "";
     document.getElementById("footer-text").textContent = S.surprise
-      ? "Tryb niespodzianki jest włączony: rezerwacje są ukryte na tym urządzeniu."
+      ? (OWNER ? "To Twoja lista, więc rezerwacje są ukryte. Pokażesz je tylko do zamknięcia tej karty."
+        : "Tryb niespodzianki jest włączony: rezerwacje są ukryte na tym urządzeniu.")
       : "Rezerwację możesz w każdej chwili anulować z tego samego urządzenia i przeglądarki.";
     document.getElementById("surprise-toggle").textContent = S.surprise
       ? "Pokaż rezerwacje"
@@ -203,7 +235,7 @@
     if (!S.loaded || !S.items.length) return;
     var total = S.items.length;
     if (S.surprise) { box.textContent = gifts(total) + " na liście"; return; }
-    var free = S.items.filter(function (it) { return !claimOf(it.id); }).length;
+    var free = S.items.filter(function (it) { return !taken(it); }).length;
     if (!free) { box.textContent = "Wszystko z listy jest już zarezerwowane."; return; }
     box.appendChild(document.createTextNode("Wolne: "));
     box.appendChild(el("strong", { text: String(free) }));
@@ -247,7 +279,7 @@
 
   function group(g, items) {
     var total = items.length;
-    var free = items.filter(function (it) { return !claimOf(it.id); }).length;
+    var free = items.filter(function (it) { return !taken(it); }).length;
     var countText = S.surprise ? gifts(total)
       : free === 0 ? "wszystkie zajęte"
       : free + " z " + total + " " + plural(free, "wolny", "wolne", "wolnych");
@@ -276,7 +308,29 @@
     var form = null;
     var title = it.title || "Bez nazwy";
 
-    if (mine) {
+    if (it.group) {
+      var people = (c && c.people) || [];
+      if (!S.surprise) act.appendChild(el("div", { class: "who" }, [
+        el("span", { text: people.length
+          ? "Dokładają się: " + people.map(function (p) { return p.mine ? "Ty" : (str(p.name).trim() || "ktoś"); }).join(", ")
+          : "Możecie złożyć się na to w kilka osób." })
+      ]));
+      if (mine) {
+        act.appendChild(el("span", { class: "tag-mine" + (S.justClaimed === it.id ? " pop" : "") }, [icon("", "M5 12.5l4.5 4.5L19 7.5"), "Dokładasz się"]));
+        act.appendChild(el("button", {
+          class: "d-btn d-btn--secondary btn-ghost", type: "button", disabled: busy, "data-focus": "unclaim:" + it.id,
+          "aria-label": "Wycofaj się ze składki: " + title,
+          text: busy ? "Wycofuję…" : "Wycofaj się", onclick: function () { unclaim(it.id); }
+        }));
+      } else if (!S.surprise) {
+        if (S.openClaim === it.id) form = claimForm(it, busy, "Jak się podpiszesz? Pozostali ze składki zobaczą Twoje imię, żebyście ustalili, kto kupuje.", "Dołączam", "Dołączam…");
+        else act.appendChild(el("button", {
+          class: "d-btn btn-primary", type: "button", "data-focus": "claim:" + it.id,
+          "aria-label": "Dołączam do składki: " + title, text: "Dołączam się",
+          onclick: function () { openForm(it.id); }
+        }));
+      }
+    } else if (mine) {
       act.appendChild(el("span", { class: "tag-mine" + (S.justClaimed === it.id ? " pop" : "") }, [icon("", "M5 12.5l4.5 4.5L19 7.5"), "Twoja rezerwacja"]));
       act.appendChild(el("button", {
         class: "d-btn d-btn--secondary btn-ghost", type: "button", disabled: busy, "data-focus": "unclaim:" + it.id,
@@ -291,19 +345,7 @@
       ]));
     } else if (!S.surprise) {
       if (S.openClaim === it.id) {
-        var inp = el("input", {
-          type: "text", id: "name-" + it.id, placeholder: "np. Ciocia Basia", maxlength: "40",
-          autocomplete: "name", "data-focus": "name:" + it.id,
-          oninput: function () { S.draft = inp.value; }
-        });
-        inp.value = S.draft;
-        form = el("form", { class: "claim-form" + (S.formFresh ? " enter" : ""), onsubmit: function (e) { e.preventDefault(); claim(it.id, inp.value.trim()); } }, [
-          el("label", { for: "name-" + it.id, text: "Jak się podpiszesz? Zobaczą to inne osoby z listy (" + OWNER_NOM + " może to ukryć)." }),
-          inp,
-          el("button", { class: "d-btn btn-primary", type: "submit", disabled: busy, "data-focus": "confirm:" + it.id, text: busy ? "Rezerwuję…" : "Potwierdź" }),
-          el("button", { class: "d-btn d-btn--secondary btn-ghost", type: "button", "data-focus": "close:" + it.id, text: "Zamknij", onclick: function () { closeForm(it.id); } }),
-          el("div", { class: "err", role: "alert", text: S.claimErr && S.claimErr.id === it.id ? S.claimErr.msg : "" })
-        ]);
+        form = claimForm(it, busy, "Jak się podpiszesz? Zobaczą to inne osoby z listy (" + OWNER_NOM + " może to ukryć).", "Potwierdź", "Rezerwuję…");
       } else {
         act.appendChild(el("button", {
           class: "d-btn btn-primary", type: "button", "data-focus": "claim:" + it.id,
@@ -313,12 +355,13 @@
       }
     }
 
-    return el("li", { class: "gift" + (c ? " taken" : "") + (mine ? " mine" : "") }, [
+    return el("li", { class: "gift" + (taken(it) ? " taken" : "") + (mine ? " mine" : ""), "data-id": it.id }, [
       el("div", { class: "info" }, [
         el("h3", { text: title }),
         it.desc ? el("p", { class: "desc" }, linkify(it.desc)) : null,
         el("div", { class: "meta" }, [
           it.price ? el("span", { class: "price", text: it.price }) : null,
+          it.group ? el("span", { class: "d-tag d-tag--note", text: "Składka" }) : null,
           url ? el("a", { class: "shop", href: url, target: "_blank", rel: "noopener noreferrer", text: "Zobacz w " + (it.shop || "sklepie") + " ↗" }) : null
         ])
       ]),
@@ -328,11 +371,28 @@
     ]);
   }
 
-  // Klucz tej listy z aplikacji „Dodaj prezent” (ta sama przeglądarka) pozwala usuwać prezenty.
+  function claimForm(it, busy, label, ok, okBusy) {
+    var inp = el("input", {
+      type: "text", id: "name-" + it.id, placeholder: "np. Ciocia Basia", maxlength: "40",
+      autocomplete: "name", "data-focus": "name:" + it.id,
+      oninput: function () { S.draft = inp.value; }
+    });
+    inp.value = S.draft;
+    return el("form", { class: "claim-form" + (S.formFresh ? " enter" : ""), onsubmit: function (e) { e.preventDefault(); claim(it.id, inp.value.trim()); } }, [
+      el("label", { for: "name-" + it.id, text: label }),
+      inp,
+      el("button", { class: "d-btn btn-primary", type: "submit", disabled: busy, "data-focus": "confirm:" + it.id, text: busy ? okBusy : ok }),
+      el("button", { class: "d-btn d-btn--secondary btn-ghost", type: "button", "data-focus": "close:" + it.id, text: "Zamknij", onclick: function () { closeForm(it.id); } }),
+      el("div", { class: "err", role: "alert", text: S.claimErr && S.claimErr.id === it.id ? S.claimErr.msg : "" })
+    ]);
+  }
+
+  // Klucz tej listy z aplikacji „Dodaj prezent” (ta sama przeglądarka) pozwala edytować, przesuwać i usuwać prezenty.
   function adminKey() { return (lsJson("gift-admin-keys") || {})[PERSON] || ""; }
 
   function ownerRow(it, title) {
     if (!adminKey()) return null;
+    if (S.edit && S.edit.id === it.id) return editForm(it);
     var busy = !!S.busy["rm:" + it.id];
     if (S.confirmRemove !== it.id) {
       // Przesuwanie tylko w zwykłej liście: przy podziale cenowym kolejność i tak miesza grupa.
@@ -342,6 +402,8 @@
           "aria-label": label + ": " + title, text: text, onclick: function () { moveGift(it.id, dir); } });
       }
       return el("div", { class: "owner" }, [
+        el("button", { class: "link-btn", type: "button", "data-focus": "ed:" + it.id, "aria-label": "Edytuj: " + title, text: "Edytuj",
+          onclick: function () { openEdit(it); } }),
         flat ? mv("up", "Przesuń wyżej", "↑ Wyżej", i <= 0) : null,
         flat ? mv("down", "Przesuń niżej", "↓ Niżej", i >= lastI) : null,
         flat ? mv("end", "Przesuń na koniec listy", "Na koniec", i >= lastI) : null,
@@ -358,6 +420,70 @@
           onclick: function () { S.confirmRemove = null; render(); var b = document.querySelector('[data-focus="rm:' + it.id + '"]'); if (b) b.focus(); } })
       ])
     ]);
+  }
+
+  var EDIT_FIELDS = [
+    { k: "title", label: "Nazwa", max: 120 },
+    { k: "price", label: "Cena", max: 40, ph: "np. ok. 150 zł" },
+    { k: "desc", label: "Opis", max: 300, area: true },
+    { k: "shop", label: "Sklep", max: 60 },
+    { k: "url", label: "Link", max: 500, mode: "url", ph: "https://…" }
+  ];
+  function openEdit(it) {
+    S.edit = { id: it.id, title: it.title, price: it.price, desc: it.desc, shop: it.shop, url: it.url, group: !!it.group, err: "", fresh: true };
+    S.confirmRemove = null; render();
+  }
+  function closeEdit(id) {
+    S.edit = null; render();
+    var b = document.querySelector('[data-focus="ed:' + id + '"]'); if (b) b.focus();
+  }
+  function editForm(it) {
+    var E = S.edit, busy = !!S.busy["ed:" + it.id];
+    var fields = EDIT_FIELDS.map(function (f) {
+      var id = "ed-" + f.k + "-" + it.id;
+      var inp = el(f.area ? "textarea" : "input", {
+        id: id, class: f.area ? "input" : null, type: f.area ? null : "text", inputmode: f.mode || null, maxlength: String(f.max),
+        placeholder: f.ph || null, "data-focus": "edf:" + f.k + ":" + it.id,
+        oninput: function () { E[f.k] = inp.value; }
+      });
+      inp.value = E[f.k] || "";
+      return el("div", { class: "d-field" }, [el("label", { for: id, text: f.label }), inp]);
+    });
+    var chk = el("input", { type: "checkbox", class: "d-check", id: "ed-group-" + it.id, checked: E.group, "data-focus": "edf:group:" + it.id,
+      onchange: function () { E.group = chk.checked; } });
+    var fresh = E.fresh; E.fresh = false;
+    var form = el("form", { class: "owner edit-form" + (fresh ? " enter" : ""), onsubmit: function (e) { e.preventDefault(); saveEdit(it.id); } }, fields.concat([
+      el("label", { class: "check-row", for: "ed-group-" + it.id }, [chk, el("span", { text: "Składka: kilka osób może się dołożyć" })]),
+      el("div", { class: "err", role: "alert", text: E.err }),
+      el("div", { class: "confirm-actions" }, [
+        el("button", { class: "d-btn btn-primary", type: "submit", disabled: busy, "data-focus": "edok:" + it.id, text: busy ? "Zapisuję…" : "Zapisz" }),
+        el("button", { class: "d-btn d-btn--secondary btn-ghost", type: "button", disabled: busy, text: "Anuluj", onclick: function () { closeEdit(it.id); } })
+      ])
+    ]));
+    if (fresh) setTimeout(function () { var f = document.getElementById("ed-title-" + it.id); if (f) f.focus({ preventScroll: true }); }, 0);
+    return form;
+  }
+  function saveEdit(id) {
+    var E = S.edit, k = "ed:" + id;
+    if (!E || S.busy[k]) return;
+    if (!String(E.title || "").trim()) { E.err = "Wpisz nazwę prezentu."; render(); return; }
+    var url = String(E.url || "").trim();
+    if (url && !/^https?:\/\//i.test(url)) { E.err = "Link musi zaczynać się od https://"; render(); return; }
+    S.busy[k] = true; E.err = ""; render();
+    api.post({ action: "edit", key: adminKey(), id: id, title: E.title, price: E.price, desc: E.desc, shop: E.shop, url: url, group: E.group }).then(function (r) {
+      if (r && r.ok) { S.edit = null; return; }
+      E.err = r && r.error === "bad_key" ? "Klucz tej listy nie pasuje. Wklej go ponownie w aplikacji „Dodaj prezent”."
+        : r && r.error === "not_found" ? "Tego prezentu już nie ma na liście."
+        : "Nie udało się zapisać. Spróbuj ponownie.";
+    }).catch(function () {
+      E.err = "Nie udało się zapisać. Sprawdź połączenie i spróbuj ponownie.";
+    }).then(function () {
+      S.busy[k] = false;
+      var done = !S.edit;
+      return refresh().then(function () {
+        if (done) { var b = document.querySelector('[data-focus="ed:' + id + '"]'); if (b) b.focus({ preventScroll: true }); }
+      });
+    });
   }
 
   function removeGift(id) {
@@ -416,7 +542,7 @@
     return api.list().then(function (d) {
       if (!d || !d.ok) throw new Error((d && d.error) || "bad");
       if (!S.moving) S.items = (d.items || []).map(function (x) {
-        return { id: str(x.id), title: str(x.title), desc: str(x.desc), price: str(x.price), shop: str(x.shop), url: str(x.url) };
+        return { id: str(x.id), title: str(x.title), desc: str(x.desc), price: str(x.price), shop: str(x.shop), url: str(x.url), group: x.group === true };
       });
       S.claims = d.claims || {};
       S.loaded = true; S.error = "";
@@ -434,10 +560,11 @@
       if (r && r.ok) { S.openClaim = null; S.justClaimed = id; return; }
       S.claimErr = { id: id, msg: r && r.error === "taken"
         ? "Ktoś właśnie zarezerwował ten prezent. Wybierz inny."
-        : "Nie udało się zarezerwować. Spróbuj ponownie za chwilę." };
+        : r && r.error === "full" ? "Ta składka ma już komplet osób."
+        : "Nie udało się zapisać. Spróbuj ponownie za chwilę." };
       if (r && r.error === "taken") S.openClaim = null;
     }).catch(function () {
-      S.claimErr = { id: id, msg: "Nie udało się zarezerwować. Spróbuj ponownie za chwilę." };
+      S.claimErr = { id: id, msg: "Nie udało się zapisać. Spróbuj ponownie za chwilę." };
     }).then(function () {
       S.busy[id] = false;
       var keep = S.justClaimed;
@@ -452,9 +579,9 @@
     if (S.busy[id]) return;
     S.busy[id] = true; render();
     api.post({ action: "unclaim", id: id }).then(function (r) {
-      if (!r || !r.ok) S.error = "Nie udało się anulować rezerwacji. Spróbuj ponownie.";
+      if (!r || !r.ok) S.error = "Nie udało się anulować. Spróbuj ponownie.";
     }).catch(function () {
-      S.error = "Nie udało się anulować rezerwacji. Spróbuj ponownie.";
+      S.error = "Nie udało się anulować. Spróbuj ponownie.";
     }).then(function () {
       S.busy[id] = false;
       return refresh().then(function () {
@@ -465,15 +592,16 @@
 
   document.getElementById("surprise-toggle").addEventListener("click", function () {
     S.surprise = !S.surprise;
-    lsSet(pk("gift-surprise"), S.surprise ? "1" : "0");
+    if (OWNER) ssSet("gift-show:" + PERSON, S.surprise ? "0" : "1");
+    else lsSet(pk("gift-surprise"), S.surprise ? "1" : "0");
     S.openClaim = null;
     render();
   });
 
   // Odświeżaj co jakiś czas i po powrocie do karty. Gdy formularz jest otwarty, czekamy,
   // żeby nie przebudowywać pola w trakcie pisania (render i tak zachowuje wpisany tekst).
-  setInterval(function () { if (!document.hidden && !S.openClaim && !S.confirmRemove) refresh(); }, POLL_MS);
-  document.addEventListener("visibilitychange", function () { if (!document.hidden && !S.openClaim && !S.confirmRemove) refresh(); });
+  setInterval(function () { if (!document.hidden && !S.openClaim && !S.confirmRemove && !S.edit) refresh(); }, POLL_MS);
+  document.addEventListener("visibilitychange", function () { if (!document.hidden && !S.openClaim && !S.confirmRemove && !S.edit) refresh(); });
 
   render();
   refresh();

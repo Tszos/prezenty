@@ -76,6 +76,11 @@ Apps Script API w <https://script.google.com/home/usersettings>). Adresy `/exec`
 Wpisuj kolejne wiersze w zakładce **Prezenty**: `Nazwa`, `Opis`, `Cena`, `Sklep`, `Link`.
 Kolumnę `ID` zostaw pustą, uzupełni się sama. Kolejność wierszy = kolejność na stronie.
 Aby usunąć prezent, usuń jego wiersz. Aby ręcznie zwolnić rezerwację, usuń wiersz w zakładce **Rezerwacje**.
+`TAK` w kolumnie `Składka` (G) pozwala kilku osobom dołożyć się do prezentu.
+
+Właściciel listy (przeglądarka z kluczem z aplikacji „Dodaj prezent”) może też na samej stronie listy
+edytować prezenty, zmieniać kolejność, włączać składkę i usuwać pozycje. U niego rezerwacje są
+domyślnie ukryte; „Pokaż rezerwacje” działa do zamknięcia karty.
 
 > Zmiany w `Code.gs` wymagają nowej wersji wdrożenia (**Wdróż → Zarządzaj wdrożeniami → Edytuj → Nowa wersja**).
 > Zmiany w samym arkuszu (prezenty) działają od razu.
