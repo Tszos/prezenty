@@ -96,6 +96,13 @@
           if (b.key !== "demo") return later({ ok: false, error: "bad_key" });
           d.items = d.items.filter(function (it) { return it.id !== b.id; });
           delete d.claims[b.id];
+        } else if (b.action === "move") {
+          if (b.key !== "demo") return later({ ok: false, error: "bad_key" });
+          var it = d.items.filter(function (x) { return x.id === b.id; })[0];
+          if (!it) return later({ ok: false, error: "not_found" });
+          d.items = d.items.filter(function (x) { return x !== it; });
+          var at = b.before ? d.items.map(function (x) { return x.id; }).indexOf(b.before) : -1;
+          d.items.splice(at < 0 ? d.items.length : at, 0, it);
         } else if (b.action === "claim") {
           if (c && c.token !== TOKEN) return later({ ok: false, error: "taken" });
           d.claims[b.id] = { name: b.name, token: TOKEN };
@@ -328,7 +335,16 @@
     if (!adminKey()) return null;
     var busy = !!S.busy["rm:" + it.id];
     if (S.confirmRemove !== it.id) {
+      // Przesuwanie tylko w zwykłej liście: przy podziale cenowym kolejność i tak miesza grupa.
+      var i = S.items.indexOf(it), lastI = S.items.length - 1, flat = !CFG.groupByPrice;
+      function mv(dir, label, text, off) {
+        return el("button", { class: "link-btn", type: "button", "data-focus": dir + ":" + it.id, disabled: off,
+          "aria-label": label + ": " + title, text: text, onclick: function () { moveGift(it.id, dir); } });
+      }
       return el("div", { class: "owner" }, [
+        flat ? mv("up", "Przesuń wyżej", "↑ Wyżej", i <= 0) : null,
+        flat ? mv("down", "Przesuń niżej", "↓ Niżej", i >= lastI) : null,
+        flat ? mv("end", "Przesuń na koniec listy", "Na koniec", i >= lastI) : null,
         el("button", { class: "link-btn", type: "button", "data-focus": "rm:" + it.id, "aria-label": "Usuń z listy: " + title, text: "Usuń z listy",
           onclick: function () { S.confirmRemove = it.id; S.focusConfirm = true; render(); } })
       ]);
@@ -360,6 +376,34 @@
     });
   }
 
+  // Przesunięcie widać od razu; zapisy idą po kolei, więc szybkie klikanie nie miesza kolejności.
+  // Dopóki coś czeka w kolejce, odświeżanie nie nadpisuje lokalnej kolejności.
+  var moveChain = Promise.resolve();
+  S.moving = 0;
+  function moveGift(id, dir) {
+    var from = -1;
+    S.items.forEach(function (x, j) { if (x.id === id) from = j; });
+    var to = dir === "up" ? from - 1 : dir === "down" ? from + 1 : S.items.length - 1;
+    if (from < 0 || to < 0 || to >= S.items.length || to === from) return;
+    var it = S.items.splice(from, 1)[0];
+    S.items.splice(to, 0, it);
+    var before = S.items[to + 1] ? S.items[to + 1].id : "";
+    var key = adminKey();
+    S.moving++; S.error = ""; render();
+    moveChain = moveChain.then(function () {
+      return api.post({ action: "move", id: id, before: before, key: key }).then(function (r) {
+        if (!r || !r.ok) S.error = r && r.error === "bad_key"
+          ? "Klucz tej listy nie pasuje. Wklej go ponownie w aplikacji „Dodaj prezent”."
+          : "Nie udało się zapisać nowej kolejności. Pokazuję aktualną listę.";
+      }).catch(function () {
+        S.error = "Nie udało się zapisać nowej kolejności. Sprawdź połączenie.";
+      }).then(function () {
+        S.moving--;
+        if (!S.moving) { var err = S.error; return refresh().then(function () { if (err) { S.error = err; render(); } }); }
+      });
+    });
+  }
+
   // ---------- akcje ----------
   function openForm(id) { S.openClaim = id; S.draft = S.myName; S.claimErr = null; S.formFresh = true; render(); }
   function closeForm(id) {
@@ -371,7 +415,7 @@
     if (!PEOPLE[PERSON]) { S.error = "Nie ma takiej listy. Wybierz osobę na stronie głównej."; render(); return Promise.resolve(); }
     return api.list().then(function (d) {
       if (!d || !d.ok) throw new Error((d && d.error) || "bad");
-      S.items = (d.items || []).map(function (x) {
+      if (!S.moving) S.items = (d.items || []).map(function (x) {
         return { id: str(x.id), title: str(x.title), desc: str(x.desc), price: str(x.price), shop: str(x.shop), url: str(x.url) };
       });
       S.claims = d.claims || {};

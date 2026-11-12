@@ -62,6 +62,10 @@ function doPost(e) {
     if (!keyOk(body.key)) return json({ ok: false, error: 'bad_key' });
     return withLock(function () { return removeItem(String(body.id || '')); });
   }
+  if (body.action === 'move') {
+    if (!keyOk(body.key)) return json({ ok: false, error: 'bad_key' });
+    return withLock(function () { return moveItem(String(body.id || ''), String(body.before || '')); });
+  }
   var token = String(body.token || '');
   if (!/^[0-9a-f]{16,64}$/i.test(token)) return json({ ok: false, error: 'bad_token' });
   var id = String(body.id || '');
@@ -193,6 +197,37 @@ function removeItem(id) {
   readClaims().filter(function (c) { return c.id === id; })
     .sort(function (a, b) { return b.row - a.row; })
     .forEach(function (c) { claims.deleteRow(c.row); });
+  return { ok: true };
+}
+
+/**
+ * Gdzie przenieść wiersz: przed wiersz prezentu `before` albo na koniec, gdy `before` jest puste.
+ * ids = kolumna ID od wiersza 2. Zwraca numery wierszy dla moveRows() albo { error }.
+ * Czysta funkcja, żeby dało się ją przetestować w Node.
+ */
+function planMove(ids, id, before) {
+  ids = ids.map(function (x) { return String(x).trim(); });
+  var i = ids.indexOf(id);
+  if (!id || i < 0) return { error: 'not_found' };
+  var to = ids.length + 2;
+  if (before) {
+    var b = ids.indexOf(before);
+    if (b < 0 || b === i) return { error: 'not_found' };
+    to = b + 2;
+  }
+  var from = i + 2;
+  return { from: from, to: to, noop: to === from || to === from + 1 };
+}
+
+/** Przesuwa cały wiersz (z formatowaniem), więc cena-tekst i ewentualne formuły zostają nietknięte. */
+function moveItem(id, before) {
+  var s = sheet(ITEMS_SHEET), last = s.getLastRow();
+  if (last < 2) return { ok: false, error: 'not_found' };
+  var p = planMove(s.getRange(2, 1, last - 1, 1).getValues().map(function (r) { return r[0]; }), id.trim(), before.trim());
+  if (p.error) return { ok: false, error: p.error };
+  if (p.noop) return { ok: true };
+  if (p.to > s.getMaxRows()) s.insertRowAfter(s.getMaxRows());
+  s.moveRows(s.getRange(p.from, 1), p.to);
   return { ok: true };
 }
 
@@ -375,4 +410,4 @@ function unclaim(id, token) {
 }
 
 // Dla testów w Node (w Apps Script `module` nie istnieje).
-if (typeof module !== 'undefined') module.exports = { extractMeta: extractMeta, decodeEntities: decodeEntities, cleanTitle: cleanTitle, slugTitle: slugTitle, shopFromUrl: shopFromUrl };
+if (typeof module !== 'undefined') module.exports = { extractMeta: extractMeta, decodeEntities: decodeEntities, cleanTitle: cleanTitle, slugTitle: slugTitle, shopFromUrl: shopFromUrl, planMove: planMove };
