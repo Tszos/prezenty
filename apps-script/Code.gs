@@ -1,12 +1,12 @@
 /**
  * Backend listy prezentów — Google Apps Script podpięty pod arkusz Google.
  *
- * Arkusz "Prezenty":     ID | Nazwa | Opis | Cena | Sklep | Link | Składka
- * Arkusz "Rezerwacje":   ID prezentu | Kto | Token | Data
+ * Arkusz "Prezenty":     ID | Nazwa | Opis | Cena | Sklep | Link
+ * Arkusz "Rezerwacje":   ID prezentu | Kto | Token | Data | Składka | Kwota
  *
  * Ty wpisujesz prezenty do arkusza "Prezenty" (kolumnę ID zostaw pustą —
- * skrypt sam ją uzupełni). „TAK” w kolumnie Składka pozwala kilku osobom dołożyć się do prezentu.
- * Rezerwacje zapisują się w arkuszu "Rezerwacje".
+ * skrypt sam ją uzupełni). Rezerwacje zapisują się w arkuszu "Rezerwacje".
+ * Każdy prezent można kupić samemu albo zrobić na niego składkę (kilka osób, opcjonalnie z kwotą).
  * Jeśli chcesz zachować niespodziankę, po prostu do niego nie zaglądaj :)
  *
  * Dodawanie prezentów z telefonu (aplikacja docs/dodaj/) wymaga klucza zapisanego
@@ -18,9 +18,9 @@
 
 var ITEMS_SHEET = 'Prezenty';
 var CLAIMS_SHEET = 'Rezerwacje';
-var ITEM_HEADERS = ['ID', 'Nazwa', 'Opis', 'Cena', 'Sklep', 'Link', 'Składka'];
+var ITEM_HEADERS = ['ID', 'Nazwa', 'Opis', 'Cena', 'Sklep', 'Link'];
 var GROUP_MAX = 20;
-var CLAIM_HEADERS = ['ID prezentu', 'Kto', 'Token', 'Data'];
+var CLAIM_HEADERS = ['ID prezentu', 'Kto', 'Token', 'Data', 'Składka', 'Kwota'];
 
 /** Uruchom raz ręcznie z edytora: tworzy arkusze z nagłówkami i przykładowym prezentem. */
 function setup() {
@@ -77,7 +77,7 @@ function doPost(e) {
   var id = String(body.id || '');
 
   return withLock(function () {
-    if (body.action === 'claim') return claim(id, String(body.name || ''), token);
+    if (body.action === 'claim') return claim(id, String(body.name || ''), token, body.group === true, String(body.amount || ''));
     if (body.action === 'unclaim') return unclaim(id, token);
     return { ok: false, error: 'unknown_action' };
   });
@@ -131,7 +131,7 @@ function readItems() {
       price: String(r[3]).trim(),
       shop: String(r[4]).trim(),
       url: String(r[5]).trim(),
-      group: isYes(r[6])
+      group: false
     });
   }
   return items;
@@ -142,7 +142,7 @@ function readClaims() {
   var last = s.getLastRow();
   if (last < 2) return [];
   return s.getRange(2, 1, last - 1, CLAIM_HEADERS.length).getValues().map(function (r, i) {
-    return { row: i + 2, id: String(r[0]).trim(), name: String(r[1]), token: String(r[2]) };
+    return { row: i + 2, id: String(r[0]).trim(), name: String(r[1]), token: String(r[2]), group: isYes(r[4]), amount: String(r[5]).trim() };
   }).filter(function (c) { return c.id; });
 }
 
@@ -151,10 +151,14 @@ function isYes(v) {
   return v === true || /^(tak|t|x|1|yes|true)$/i.test(String(v == null ? '' : v).trim());
 }
 
+/** Składka = ktoś ją zaczął albo na prezencie jest więcej niż jedna osoba. */
+function isGroup(rows) {
+  return rows.length > 1 || rows.some(function (c) { return c.group; });
+}
+
 /**
  * Rezerwacje do wysłania na stronę. Token nigdy nie wychodzi na zewnątrz — tylko informacja,
- * czy to Twoja rezerwacja. Prezent z kilkoma osobami jest składką, nawet jeśli ktoś potem
- * odznaczył kolumnę Składka. `name` i `mine` zostają dla starszej wersji strony.
+ * czy to Twoja rezerwacja. `name` i `mine` zostają dla starszej wersji strony.
  * Czysta funkcja, żeby dało się ją przetestować w Node.
  */
 function shapeClaims(items, rows, token) {
@@ -164,8 +168,8 @@ function shapeClaims(items, rows, token) {
   items.forEach(function (it) {
     var rs = by[it.id];
     if (!rs) return;
-    if (rs.length > 1) it.group = true;
-    var people = rs.map(function (c) { return { name: String(c.name), mine: !!token && c.token === token }; });
+    if (isGroup(rs)) it.group = true;
+    var people = rs.map(function (c) { return { name: String(c.name), mine: !!token && c.token === token, amount: String(c.amount || '') }; });
     claims[it.id] = {
       name: people.map(function (p) { return p.name; }).filter(Boolean).join(', '),
       mine: people.some(function (p) { return p.mine; }),
@@ -180,20 +184,39 @@ function list(token) {
   return { ok: true, items: items, claims: shapeClaims(items, readClaims(), token) };
 }
 
-function claim(id, name, token) {
-  var item = readItems().filter(function (it) { return it.id === id; })[0];
-  if (!item) return { ok: false, error: 'not_found' };
-  name = sheetSafe(name.trim().slice(0, 40));
-  var rows = readClaims().filter(function (c) { return c.id === id; });
+/**
+ * Co zrobić z rezerwacją: rows = rezerwacje tego prezentu, group = czy ta osoba się składa.
+ * Zwraca { update: wiersz, group } dla własnej rezerwacji, { append: true, group } albo { error }.
+ * Czysta funkcja, żeby dało się ją przetestować w Node.
+ */
+function claimPlan(rows, token, group) {
   var mine = rows.filter(function (c) { return c.token === token; })[0];
   if (mine) {
-    sheet(CLAIMS_SHEET).getRange(mine.row, 2).setValue(name);
-    return { ok: true };
+    // Sam na prezencie możesz przejść między „kupuję sam” a „zaczynam składkę”; w składce zostajesz w niej.
+    return { update: mine.row, group: rows.length > 1 ? true : group };
   }
-  var group = item.group || rows.length > 1;
-  if (rows.length && !group) return { ok: false, error: 'taken' };
-  if (rows.length >= GROUP_MAX) return { ok: false, error: 'full' };
-  sheet(CLAIMS_SHEET).appendRow([id, name, token, new Date()]);
+  if (!rows.length) return { append: true, group: group };
+  if (!isGroup(rows)) return { error: 'taken' };
+  if (!group) return { error: 'group_started' };
+  if (rows.length >= GROUP_MAX) return { error: 'full' };
+  return { append: true, group: true };
+}
+
+function claim(id, name, token, group, amount) {
+  var exists = readItems().some(function (it) { return it.id === id; });
+  if (!exists) return { ok: false, error: 'not_found' };
+  name = sheetSafe(name.trim().slice(0, 40));
+  var p = claimPlan(readClaims().filter(function (c) { return c.id === id; }), token, group);
+  if (p.error) return { ok: false, error: p.error };
+  amount = p.group ? sheetSafe(clip(amount, 20)) : '';
+  var s = sheet(CLAIMS_SHEET);
+  if (!String(s.getRange(1, 5).getValue()).trim()) s.getRange(1, 5, 1, 2).setValues([['Składka', 'Kwota']]);
+  var row = p.update;
+  if (row) s.getRange(row, 2).setValue(name);
+  else { s.appendRow([id, name, token, new Date()]); row = s.getLastRow(); }
+  // Kwota jako tekst, żeby „100” nie zamieniło się w liczbę bez „zł”.
+  s.getRange(row, 6).setNumberFormat('@');
+  s.getRange(row, 5, 1, 2).setValues([[p.group ? 'TAK' : '', amount]]);
   return { ok: true };
 }
 
@@ -269,14 +292,14 @@ function moveItem(id, before) {
 function cleanEdit(b) {
   var out = {
     title: clip(b.title, 120), desc: clip(b.desc, 300), price: clip(b.price, 40),
-    shop: clip(b.shop, 60), url: clip(b.url, 500), group: b.group === true
+    shop: clip(b.shop, 60), url: clip(b.url, 500)
   };
   if (!out.title) return { error: 'no_title' };
   if (out.url && !/^https?:\/\//i.test(out.url)) return { error: 'bad_url' };
   return out;
 }
 
-/** Nadpisuje nazwę, opis, cenę, sklep, link i składkę prezentu. Rezerwacje zostają. */
+/** Nadpisuje nazwę, opis, cenę, sklep i link prezentu. Rezerwacje zostają. */
 function editItem(id, b) {
   var f = cleanEdit(b);
   if (f.error) return { ok: false, error: f.error };
@@ -286,9 +309,8 @@ function editItem(id, b) {
   var ids = s.getRange(2, 1, last - 1, 1).getValues(), row = 0;
   for (var i = 0; i < ids.length; i++) if (String(ids[i][0]).trim() === id) { row = i + 2; break; }
   if (!row) return { ok: false, error: 'not_found' };
-  if (!String(s.getRange(1, 7).getValue()).trim()) s.getRange(1, 7).setValue('Składka');
   s.getRange(row, 4).setNumberFormat('@');
-  s.getRange(row, 2, 1, 6).setValues([[sheetSafe(f.title), sheetSafe(f.desc), sheetSafe(f.price), sheetSafe(f.shop), f.url, f.group ? 'TAK' : '']]);
+  s.getRange(row, 2, 1, 5).setValues([[sheetSafe(f.title), sheetSafe(f.desc), sheetSafe(f.price), sheetSafe(f.shop), f.url]]);
   return { ok: true };
 }
 
@@ -472,4 +494,4 @@ function unclaim(id, token) {
 
 // Dla testów w Node (w Apps Script `module` nie istnieje).
 if (typeof module !== 'undefined') module.exports = { extractMeta: extractMeta, decodeEntities: decodeEntities, cleanTitle: cleanTitle, slugTitle: slugTitle, shopFromUrl: shopFromUrl, planMove: planMove,
-  shapeClaims: shapeClaims, cleanEdit: cleanEdit, isYes: isYes };
+  shapeClaims: shapeClaims, cleanEdit: cleanEdit, isYes: isYes, claimPlan: claimPlan };

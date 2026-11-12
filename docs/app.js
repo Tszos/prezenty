@@ -81,7 +81,7 @@
           { id: "a2", title: "Książka „Projekt Hail Mary”", desc: "Andy Weir, wydanie w twardej oprawie", price: "ok. 55 zł", shop: "Empik", url: "https://www.empik.com" },
           { id: "a3", title: "Skarpetki w lisy", desc: "Rozmiar 43–46", price: "ok. 30 zł", shop: "", url: "" },
           { id: "a4", title: "Słuchawki bezprzewodowe", desc: "Nauszne, z redukcją szumów", price: "ok. 350–420 zł", shop: "Media Expert", url: "https://www.mediaexpert.pl" },
-          { id: "a5", title: "Ekspres przelewowy", desc: "Z termosem zamiast szklanego dzbanka", price: "ok. 950–1150 zł", shop: "", url: "https://www.ceneo.pl", group: true },
+          { id: "a5", title: "Ekspres przelewowy", desc: "Z termosem zamiast szklanego dzbanka", price: "ok. 950–1150 zł", shop: "", url: "https://www.ceneo.pl" },
           { id: "a6", title: "Gra planszowa „Wsiąść do pociągu: Europa”", desc: "", price: "ok. 100 zł", shop: "Rebel", url: "https://www.rebel.pl" },
           { id: "a7", title: "Plecak na rower", desc: "Wodoodporny, 20–25 l", price: "1149,99 zł", shop: "Decathlon", url: "https://www.decathlon.pl" },
           { id: "a8", title: "Kurs ceramiki dla dwojga", desc: "Dowolna pracownia w Warszawie", price: "ok. 280 zł", shop: "", url: "" },
@@ -90,7 +90,7 @@
         claims: {
           a2: [{ name: "Ciocia Basia", token: "someone-else-token" }],
           a4: [{ name: "Marek", token: "another-token" }],
-          a5: [{ name: "Ania", token: "third-token" }, { name: "Wujek Staszek", token: "fourth-token" }]
+          a5: [{ name: "Ania", token: "third-token", group: true, amount: "200 zł" }, { name: "Wujek Staszek", token: "fourth-token", group: true, amount: "" }]
         }
       };
     }
@@ -103,8 +103,8 @@
         items.forEach(function (it) {
           var rs = d.claims[it.id];
           if (!rs || !rs.length) return;
-          if (rs.length > 1) it.group = true;
-          var people = rs.map(function (c) { return { name: c.name, mine: c.token === TOKEN }; });
+          it.group = rs.length > 1 || rs.some(function (c) { return c.group; });
+          var people = rs.map(function (c) { return { name: c.name, mine: c.token === TOKEN, amount: c.amount || "" }; });
           claims[it.id] = { name: people.map(function (p) { return p.name; }).join(", "), mine: people.some(function (p) { return p.mine; }), people: people };
         });
         return later({ ok: true, items: items, claims: claims });
@@ -129,12 +129,14 @@
           if (!item) return later({ ok: false, error: "not_found" });
           if (!String(b.title || "").trim()) return later({ ok: false, error: "no_title" });
           ["title", "desc", "price", "shop", "url"].forEach(function (k) { item[k] = String(b[k] || "").trim(); });
-          item.group = b.group === true;
         } else if (b.action === "claim") {
           if (!item) return later({ ok: false, error: "not_found" });
-          if (mine) mine.name = b.name;
-          else if (rs.length && !item.group && rs.length < 2) return later({ ok: false, error: "taken" });
-          else d.claims[b.id] = rs.concat([{ name: b.name, token: TOKEN }]);
+          var grp = rs.length > 1 || rs.some(function (c) { return c.group; });
+          var want = b.group === true;
+          if (mine) { mine.name = b.name; mine.group = rs.length > 1 ? true : want; mine.amount = mine.group ? (b.amount || "") : ""; }
+          else if (rs.length && !grp) return later({ ok: false, error: "taken" });
+          else if (rs.length && !want) return later({ ok: false, error: "group_started" });
+          else d.claims[b.id] = rs.concat([{ name: b.name, token: TOKEN, group: want, amount: want ? (b.amount || "") : "" }]);
         } else if (b.action === "unclaim") {
           if (!mine) return later({ ok: false, error: "not_yours" });
           d.claims[b.id] = rs.filter(function (c) { return c !== mine; });
@@ -309,27 +311,40 @@
     var act = el("div", { class: "act" });
     var form = null;
     var title = it.title || "Bez nazwy";
+    // W trybie niespodzianki składki też nie widać: zdradziłaby, że ktoś już kupuje.
+    var group = it.group && !S.surprise;
+    var JOIN_LABEL = "Jak się podpiszesz? Pozostali ze składki zobaczą Twoje imię i kwotę, żebyście ustalili, kto kupuje.";
 
-    if (it.group) {
+    if (group) {
       var people = (c && c.people) || [];
-      if (!S.surprise) act.appendChild(el("div", { class: "who" }, [
-        el("span", { text: people.length
-          ? "Dokładają się: " + people.map(function (p) { return p.mine ? "Ty" : (str(p.name).trim() || "ktoś"); }).join(", ")
-          : "Możecie złożyć się na to w kilka osób." })
+      var me = people.filter(function (p) { return p.mine; })[0];
+      var total = sumAmounts(people);
+      act.appendChild(el("div", { class: "who" }, [
+        el("span", { text: "Składają się: " + people.map(function (p) {
+          var n = p.mine ? "Ty" : (str(p.name).trim() || "ktoś");
+          return str(p.amount).trim() ? n + " (" + str(p.amount).trim() + ")" : n;
+        }).join(", ") }),
+        total ? el("span", { class: "total", text: "Razem: " + total }) : null
       ]));
-      if (mine) {
+      if (S.openClaim === it.id) {
+        form = claimForm(it, busy, JOIN_LABEL, me ? "Zapisz" : "Dołączam", me ? "Zapisuję…" : "Dołączam…");
+      } else if (me) {
         act.appendChild(el("span", { class: "tag-mine" + (S.justClaimed === it.id ? " pop" : "") }, [icon("", "M5 12.5l4.5 4.5L19 7.5"), "Dokładasz się"]));
+        act.appendChild(el("button", {
+          class: "link-btn", type: "button", "data-focus": "claim:" + it.id,
+          "aria-label": "Zmień kwotę: " + title, text: "Zmień kwotę",
+          onclick: function () { openForm(it.id, "group", str(me.amount)); }
+        }));
         act.appendChild(el("button", {
           class: "d-btn d-btn--secondary btn-ghost", type: "button", disabled: busy, "data-focus": "unclaim:" + it.id,
           "aria-label": "Wycofaj się ze składki: " + title,
           text: busy ? "Wycofuję…" : "Wycofaj się", onclick: function () { unclaim(it.id); }
         }));
-      } else if (!S.surprise) {
-        if (S.openClaim === it.id) form = claimForm(it, busy, "Jak się podpiszesz? Pozostali ze składki zobaczą Twoje imię, żebyście ustalili, kto kupuje.", "Dołączam", "Dołączam…");
-        else act.appendChild(el("button", {
+      } else {
+        act.appendChild(el("button", {
           class: "d-btn btn-primary", type: "button", "data-focus": "claim:" + it.id,
-          "aria-label": "Dołączam do składki: " + title, text: "Dołączam się",
-          onclick: function () { openForm(it.id); }
+          "aria-label": "Dołączam do składki: " + title, text: "Dołączam do składki",
+          onclick: function () { openForm(it.id, "group"); }
         }));
       }
     } else if (mine) {
@@ -347,12 +362,19 @@
       ]));
     } else if (!S.surprise) {
       if (S.openClaim === it.id) {
-        form = claimForm(it, busy, "Jak się podpiszesz? Zobaczą to inne osoby z listy (" + OWNER_NOM + " może to ukryć).", "Potwierdź", "Rezerwuję…");
+        form = S.claimMode === "group"
+          ? claimForm(it, busy, "Zaczynasz składkę: inni zobaczą, że mogą się dołożyć. Jak się podpiszesz?", "Zaczynam", "Zapisuję…")
+          : claimForm(it, busy, "Jak się podpiszesz? Zobaczą to inne osoby z listy (" + OWNER_NOM + " może to ukryć).", "Potwierdź", "Rezerwuję…");
       } else {
         act.appendChild(el("button", {
           class: "d-btn btn-primary", type: "button", "data-focus": "claim:" + it.id,
           "aria-label": "Rezerwuję: " + title, text: "Rezerwuję",
-          onclick: function () { openForm(it.id); }
+          onclick: function () { openForm(it.id, "solo"); }
+        }));
+        act.appendChild(el("button", {
+          class: "d-btn d-btn--secondary btn-ghost", type: "button", "data-focus": "group:" + it.id,
+          "aria-label": "Zacznij składkę: " + title, text: "Zacznij składkę",
+          onclick: function () { openForm(it.id, "group"); }
         }));
       }
     }
@@ -363,7 +385,7 @@
         it.desc ? el("p", { class: "desc" }, linkify(it.desc)) : null,
         el("div", { class: "meta" }, [
           it.price ? el("span", { class: "price", text: it.price }) : null,
-          it.group ? el("span", { class: "d-tag d-tag--note", text: "Składka" }) : null,
+          group ? el("span", { class: "d-tag d-tag--note", text: "Składka" }) : null,
           url ? el("a", { class: "shop", href: url, target: "_blank", rel: "noopener noreferrer", text: "Zobacz w " + (it.shop || "sklepie") + " ↗" }) : null
         ])
       ]),
@@ -373,16 +395,35 @@
     ]);
   }
 
+  // Suma kwot, które da się odczytać („100 zł”, „50”), np. „300 zł”. Pusty napis, gdy nie ma żadnej.
+  function sumAmounts(people) {
+    if (!PRICE) return "";
+    var sum = 0, any = false;
+    people.forEach(function (p) { var v = PRICE.parsePrice(p.amount); if (v !== null && isFinite(v)) { sum += v; any = true; } });
+    if (!any) return "";
+    return (Math.round(sum * 100) / 100).toFixed(2).replace(/\.00$/, "").replace(".", ",") + " zł";
+  }
+
   function claimForm(it, busy, label, ok, okBusy) {
+    var groupMode = S.claimMode === "group";
     var inp = el("input", {
       type: "text", id: "name-" + it.id, placeholder: "np. Ciocia Basia", maxlength: "40",
       autocomplete: "name", "data-focus": "name:" + it.id,
       oninput: function () { S.draft = inp.value; }
     });
     inp.value = S.draft;
-    return el("form", { class: "claim-form" + (S.formFresh ? " enter" : ""), onsubmit: function (e) { e.preventDefault(); claim(it.id, inp.value.trim()); } }, [
+    var amt = groupMode ? el("input", {
+      type: "text", id: "amount-" + it.id, placeholder: "np. 100 zł", maxlength: "20", inputmode: "decimal",
+      autocomplete: "off", "data-focus": "amount:" + it.id,
+      oninput: function () { S.amountDraft = amt.value; }
+    }) : null;
+    if (amt) amt.value = S.amountDraft;
+    return el("form", { class: "claim-form" + (groupMode ? " group" : "") + (S.formFresh ? " enter" : ""),
+      onsubmit: function (e) { e.preventDefault(); claim(it.id, inp.value.trim()); } }, [
       el("label", { for: "name-" + it.id, text: label }),
       inp,
+      amt ? el("label", { class: "sub", for: "amount-" + it.id, text: "Ile chcesz dołożyć? Możesz zostawić puste." }) : null,
+      amt,
       el("button", { class: "d-btn btn-primary", type: "submit", disabled: busy, "data-focus": "confirm:" + it.id, text: busy ? okBusy : ok }),
       el("button", { class: "d-btn d-btn--secondary btn-ghost", type: "button", "data-focus": "close:" + it.id, text: "Zamknij", onclick: function () { closeForm(it.id); } }),
       el("div", { class: "err", role: "alert", text: S.claimErr && S.claimErr.id === it.id ? S.claimErr.msg : "" })
@@ -437,7 +478,7 @@
     { k: "url", label: "Link", max: 500, mode: "url", ph: "https://…" }
   ];
   function openEdit(it) {
-    S.edit = { id: it.id, title: it.title, price: it.price, desc: it.desc, shop: it.shop, url: it.url, group: !!it.group, err: "", fresh: true };
+    S.edit = { id: it.id, title: it.title, price: it.price, desc: it.desc, shop: it.shop, url: it.url, err: "", fresh: true };
     S.confirmRemove = null; render();
   }
   function closeEdit(id) {
@@ -456,11 +497,8 @@
       inp.value = E[f.k] || "";
       return el("div", { class: "d-field" }, [el("label", { for: id, text: f.label }), inp]);
     });
-    var chk = el("input", { type: "checkbox", class: "d-check", id: "ed-group-" + it.id, checked: E.group, "data-focus": "edf:group:" + it.id,
-      onchange: function () { E.group = chk.checked; } });
     var fresh = E.fresh; E.fresh = false;
     var form = el("form", { class: "owner edit-form" + (fresh ? " enter" : ""), onsubmit: function (e) { e.preventDefault(); saveEdit(it.id); } }, fields.concat([
-      el("label", { class: "check-row", for: "ed-group-" + it.id }, [chk, el("span", { text: "Składka: kilka osób może się dołożyć" })]),
       el("div", { class: "err", role: "alert", text: E.err }),
       el("div", { class: "confirm-actions" }, [
         el("button", { class: "d-btn btn-primary", type: "submit", disabled: busy, "data-focus": "edok:" + it.id, text: busy ? "Zapisuję…" : "Zapisz" }),
@@ -477,7 +515,7 @@
     var url = String(E.url || "").trim();
     if (url && !/^https?:\/\//i.test(url)) { E.err = "Link musi zaczynać się od https://"; render(); return; }
     S.busy[k] = true; E.err = ""; render();
-    api.post({ action: "edit", key: adminKey(), id: id, title: E.title, price: E.price, desc: E.desc, shop: E.shop, url: url, group: E.group }).then(function (r) {
+    api.post({ action: "edit", key: adminKey(), id: id, title: E.title, price: E.price, desc: E.desc, shop: E.shop, url: url }).then(function (r) {
       if (r && r.ok) { S.edit = null; return; }
       E.err = r && r.error === "bad_key" ? "Klucz tej listy nie pasuje. Wklej go ponownie w aplikacji „Dodaj prezent”."
         : r && r.error === "not_found" ? "Tego prezentu już nie ma na liście."
@@ -613,7 +651,15 @@
   function dragCancel() { endDrag(false); }
 
   // ---------- akcje ----------
-  function openForm(id) { S.openClaim = id; S.draft = S.myName; S.claimErr = null; S.formFresh = true; render(); }
+  function openForm(id, mode, amount) {
+    S.openClaim = id; S.claimMode = mode || "solo"; S.draft = S.myName; S.amountDraft = amount || "";
+    S.claimErr = null; S.formFresh = true; render();
+  }
+  // „100” albo „100,50” bez waluty dostaje „zł”.
+  function normAmount(a) {
+    a = String(a || "").trim();
+    return /^\d[\d\s]*([.,]\d{1,2})?$/.test(a) ? a.replace(".", ",") + " zł" : a;
+  }
   function closeForm(id) {
     S.openClaim = null; S.claimErr = null; render();
     var b = document.querySelector('[data-focus="claim:' + id + '"]'); if (b) b.focus();
@@ -638,13 +684,15 @@
     if (!name) { S.claimErr = { id: id, msg: "Wpisz, jak się podpiszesz." }; S.focusInput = true; render(); return; }
     S.myName = name; lsSet("gift-name", name);
     S.busy[id] = true; S.claimErr = null; render();
-    api.post({ action: "claim", id: id, name: name }).then(function (r) {
+    var grp = S.claimMode === "group";
+    api.post({ action: "claim", id: id, name: name, group: grp, amount: grp ? normAmount(S.amountDraft) : "" }).then(function (r) {
       if (r && r.ok) { S.openClaim = null; S.justClaimed = id; return; }
-      S.claimErr = { id: id, msg: r && r.error === "taken"
-        ? "Ktoś właśnie zarezerwował ten prezent. Wybierz inny."
-        : r && r.error === "full" ? "Ta składka ma już komplet osób."
+      var e = r && r.error;
+      S.claimErr = { id: id, msg: e === "taken" ? "Ktoś właśnie zarezerwował ten prezent. Wybierz inny."
+        : e === "group_started" ? "Ktoś właśnie zaczął składkę na ten prezent. Możesz do niej dołączyć."
+        : e === "full" ? "Ta składka ma już komplet osób."
         : "Nie udało się zapisać. Spróbuj ponownie za chwilę." };
-      if (r && r.error === "taken") S.openClaim = null;
+      if (e === "taken" || e === "group_started") { S.openClaim = null; S.error = S.claimErr.msg; }
     }).catch(function () {
       S.claimErr = { id: id, msg: "Nie udało się zapisać. Spróbuj ponownie za chwilę." };
     }).then(function () {
