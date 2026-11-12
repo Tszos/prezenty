@@ -208,10 +208,14 @@ textarea.input { resize: vertical; min-height: 72px; padding-block: 10px; }
 .owner.edit-form { display: grid; gap: var(--space-3); margin-top: var(--space-2); padding: var(--space-4); border-radius: var(--radius-lg); background: var(--paper); }
 .edit-form.enter { animation: slide .28s ease-out; }
 .edit-form textarea.input { font-size: max(var(--fs-body), 16px); }
-/* składka */
-.claim-form.group input { grid-column: 1 / -1; }
-.claim-form label.sub { font-weight: 400; color: var(--ink-muted); margin-top: 2px; }
-.who .total { color: var(--ink); font-weight: 500; }
+/* strzałki grup (właściciel) */
+.sec-arrows { display: inline-flex; gap: 2px; flex: none; }
+.sec-move {
+  min-width: 36px; min-height: 36px; border: 1px solid var(--line); border-radius: var(--radius-md);
+  background: none; color: var(--ink-muted); font: inherit; font-size: var(--fs-body); line-height: 1; cursor: pointer;
+}
+.sec-move:hover:not(:disabled) { color: var(--ink); border-color: var(--ink-muted); }
+.sec-move:disabled { opacity: .35; cursor: default; }
 .owner.confirm { margin-top: 6px; }
 .group.flat .gift:first-child { border-top: 0; }
 

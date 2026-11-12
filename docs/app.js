@@ -10,7 +10,6 @@
   var OWNER_NOM = P.name || "Solenizant";
   var DEMO = !P.apiUrl;
   var POLL_MS = 30000;
-  var PRICE = window.GiftPrice;
 
   // ---------- pamięć przeglądarki (zawsze w try/catch) ----------
   function lsGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
@@ -67,30 +66,32 @@
   // Tryb demo: wszystko w localStorage, żeby można było obejrzeć stronę bez backendu.
   function demoApi() {
     var KEY = pk("gift-demo-v2");
-    // Rezerwacje: { id: [{ name, token }, …] }. Starszy zapis (jeden obiekt) zamieniamy na listę.
     function load() {
       var d = lsJson(KEY);
       if (d && d.items) {
-        Object.keys(d.claims || {}).forEach(function (id) { if (!Array.isArray(d.claims[id])) d.claims[id] = [d.claims[id]]; });
+        // Krótko działająca wersja ze składkami zapisywała listy osób: zostaje pierwsza.
         d.claims = d.claims || {};
+        Object.keys(d.claims).forEach(function (id) {
+          var c = d.claims[id];
+          if (Array.isArray(c)) { if (c.length) d.claims[id] = { name: c[0].name, token: c[0].token }; else delete d.claims[id]; }
+        });
         return d;
       }
       return {
         items: [
-          { id: "a1", title: "Kubek termiczny", desc: "Najlepiej zielony, ok. 450 ml", price: "ok. 120 zł", shop: "Allegro", url: "https://allegro.pl" },
-          { id: "a2", title: "Książka „Projekt Hail Mary”", desc: "Andy Weir, wydanie w twardej oprawie", price: "ok. 55 zł", shop: "Empik", url: "https://www.empik.com" },
+          { id: "a1", title: "Kubek termiczny", desc: "Najlepiej zielony, ok. 450 ml", price: "ok. 120 zł", shop: "Allegro", url: "https://allegro.pl", group: "Dom" },
+          { id: "a2", title: "Książka „Projekt Hail Mary”", desc: "Andy Weir, wydanie w twardej oprawie", price: "ok. 55 zł", shop: "Empik", url: "https://www.empik.com", group: "Książki i gry" },
           { id: "a3", title: "Skarpetki w lisy", desc: "Rozmiar 43–46", price: "ok. 30 zł", shop: "", url: "" },
-          { id: "a4", title: "Słuchawki bezprzewodowe", desc: "Nauszne, z redukcją szumów", price: "ok. 350–420 zł", shop: "Media Expert", url: "https://www.mediaexpert.pl" },
-          { id: "a5", title: "Ekspres przelewowy", desc: "Z termosem zamiast szklanego dzbanka", price: "ok. 950–1150 zł", shop: "", url: "https://www.ceneo.pl" },
-          { id: "a6", title: "Gra planszowa „Wsiąść do pociągu: Europa”", desc: "", price: "ok. 100 zł", shop: "Rebel", url: "https://www.rebel.pl" },
-          { id: "a7", title: "Plecak na rower", desc: "Wodoodporny, 20–25 l", price: "1149,99 zł", shop: "Decathlon", url: "https://www.decathlon.pl" },
+          { id: "a4", title: "Słuchawki bezprzewodowe", desc: "Nauszne, z redukcją szumów", price: "ok. 350–420 zł", shop: "Media Expert", url: "https://www.mediaexpert.pl", group: "Gadżety" },
+          { id: "a5", title: "Ekspres przelewowy", desc: "Z termosem zamiast szklanego dzbanka", price: "ok. 950–1150 zł", shop: "", url: "https://www.ceneo.pl", group: "Dom" },
+          { id: "a6", title: "Gra planszowa „Wsiąść do pociągu: Europa”", desc: "", price: "ok. 100 zł", shop: "Rebel", url: "https://www.rebel.pl", group: "Książki i gry" },
+          { id: "a7", title: "Plecak na rower", desc: "Wodoodporny, 20–25 l", price: "1149,99 zł", shop: "Decathlon", url: "https://www.decathlon.pl", group: "Gadżety" },
           { id: "a8", title: "Kurs ceramiki dla dwojga", desc: "Dowolna pracownia w Warszawie", price: "ok. 280 zł", shop: "", url: "" },
           { id: "a9", title: "Niespodzianka", desc: "Coś, co Twoim zdaniem mi się spodoba", price: "", shop: "", url: "" }
         ],
         claims: {
-          a2: [{ name: "Ciocia Basia", token: "someone-else-token" }],
-          a4: [{ name: "Marek", token: "another-token" }],
-          a5: [{ name: "Ania", token: "third-token", group: true, amount: "200 zł" }, { name: "Wujek Staszek", token: "fourth-token", group: true, amount: "" }]
+          a2: { name: "Ciocia Basia", token: "someone-else-token" },
+          a4: { name: "Marek", token: "another-token" }
         }
       };
     }
@@ -99,47 +100,32 @@
     return {
       list: function () {
         var d = load(), claims = {};
-        var items = d.items.map(function (it) { var x = {}; for (var k in it) x[k] = it[k]; return x; });
-        items.forEach(function (it) {
-          var rs = d.claims[it.id];
-          if (!rs || !rs.length) return;
-          it.group = rs.length > 1 || rs.some(function (c) { return c.group; });
-          var people = rs.map(function (c) { return { name: c.name, mine: c.token === TOKEN, amount: c.amount || "" }; });
-          claims[it.id] = { name: people.map(function (p) { return p.name; }).join(", "), mine: people.some(function (p) { return p.mine; }), people: people };
-        });
-        return later({ ok: true, items: items, claims: claims });
+        Object.keys(d.claims).forEach(function (id) { claims[id] = { name: d.claims[id].name, mine: d.claims[id].token === TOKEN }; });
+        return later({ ok: true, items: d.items, claims: claims });
       },
       post: function (b) {
-        var d = load(), rs = d.claims[b.id] || [];
-        var mine = rs.filter(function (c) { return c.token === TOKEN; })[0];
+        var d = load(), c = d.claims[b.id];
         var item = d.items.filter(function (x) { return x.id === b.id; })[0];
+        var owner = b.action === "remove" || b.action === "reorder" || b.action === "edit";
+        if (owner && b.key !== "demo") return later({ ok: false, error: "bad_key" });
         if (b.action === "remove") {
-          if (b.key !== "demo") return later({ ok: false, error: "bad_key" });
           d.items = d.items.filter(function (it) { return it.id !== b.id; });
           delete d.claims[b.id];
-        } else if (b.action === "move") {
-          if (b.key !== "demo") return later({ ok: false, error: "bad_key" });
-          var it = d.items.filter(function (x) { return x.id === b.id; })[0];
-          if (!it) return later({ ok: false, error: "not_found" });
-          d.items = d.items.filter(function (x) { return x !== it; });
-          var at = b.before ? d.items.map(function (x) { return x.id; }).indexOf(b.before) : -1;
-          d.items.splice(at < 0 ? d.items.length : at, 0, it);
+        } else if (b.action === "reorder") {
+          var pos = {};
+          (b.ids || []).forEach(function (id, i) { pos[id] = i; });
+          d.items = d.items.map(function (x, i) { return [x.id in pos ? pos[x.id] : 1e6 + i, x]; })
+            .sort(function (a, z) { return a[0] - z[0]; }).map(function (p) { return p[1]; });
         } else if (b.action === "edit") {
-          if (b.key !== "demo") return later({ ok: false, error: "bad_key" });
           if (!item) return later({ ok: false, error: "not_found" });
           if (!String(b.title || "").trim()) return later({ ok: false, error: "no_title" });
-          ["title", "desc", "price", "shop", "url"].forEach(function (k) { item[k] = String(b[k] || "").trim(); });
+          ["title", "desc", "price", "shop", "url", "group"].forEach(function (k) { item[k] = String(b[k] || "").trim(); });
         } else if (b.action === "claim") {
-          if (!item) return later({ ok: false, error: "not_found" });
-          var grp = rs.length > 1 || rs.some(function (c) { return c.group; });
-          var want = b.group === true;
-          if (mine) { mine.name = b.name; mine.group = rs.length > 1 ? true : want; mine.amount = mine.group ? (b.amount || "") : ""; }
-          else if (rs.length && !grp) return later({ ok: false, error: "taken" });
-          else if (rs.length && !want) return later({ ok: false, error: "group_started" });
-          else d.claims[b.id] = rs.concat([{ name: b.name, token: TOKEN, group: want, amount: want ? (b.amount || "") : "" }]);
+          if (c && c.token !== TOKEN) return later({ ok: false, error: "taken" });
+          d.claims[b.id] = { name: b.name, token: TOKEN };
         } else if (b.action === "unclaim") {
-          if (!mine) return later({ ok: false, error: "not_yours" });
-          d.claims[b.id] = rs.filter(function (c) { return c !== mine; });
+          if (!c || c.token !== TOKEN) return later({ ok: false, error: "not_yours" });
+          delete d.claims[b.id];
         }
         save(d); return later({ ok: true });
       }
@@ -190,8 +176,7 @@
   }
   function gifts(n) { return n + " " + plural(n, "prezent", "prezenty", "prezentów"); }
   function claimOf(id) { return S.surprise ? null : (S.claims[id] || null); }
-  // Składka nigdy nie jest „zajęta”: zawsze można się dołożyć.
-  function taken(it) { return !it.group && !!claimOf(it.id); }
+  function taken(it) { return !!claimOf(it.id); }
   function isOpen(key) { return S.groupsOpen[key] !== false; }
 
   // ---------- render ----------
@@ -265,35 +250,73 @@
     if (DEMO && PEOPLE[PERSON]) box.appendChild(el("div", { class: "d-notice", text: "Tryb demo: brak adresu backendu w config.js, więc rezerwacje zapisują się tylko w tej przeglądarce." }));
   }
 
+  // Grupy właściciela (kolumna Grupa): sekcje w kolejności pierwszego prezentu z każdej,
+  // wielkość liter bez znaczenia, prezenty bez grupy na końcu w „Pozostałe”. Bez żadnej grupy: jedna lista.
+  function sections() {
+    var map = {}, out = [], rest = [];
+    S.items.forEach(function (it) {
+      var g = str(it.group).trim();
+      if (!g) { rest.push(it); return; }
+      var k = g.toLowerCase();
+      if (!map[k]) { map[k] = { key: "g:" + k, label: g, items: [] }; out.push(map[k]); }
+      map[k].items.push(it);
+    });
+    if (!out.length) return [{ key: "", label: "", items: rest, flat: true }];
+    if (rest.length) out.push({ key: "rest", label: "Pozostałe", items: rest, rest: true });
+    return out;
+  }
+  function sectionOf(id) {
+    var secs = sections();
+    for (var i = 0; i < secs.length; i++) {
+      for (var j = 0; j < secs[i].items.length; j++) if (secs[i].items[j].id === id) return { secs: secs, i: i, j: j };
+    }
+    return null;
+  }
+  function groupNames() {
+    return sections().filter(function (g) { return !g.flat && !g.rest; }).map(function (g) { return g.label; });
+  }
+
   function renderGroups() {
     var box = document.getElementById("groups");
     box.textContent = "";
     if (!S.loaded) { if (!S.error) box.appendChild(el("p", { class: "empty", text: "Ładuję listę…" })); return; }
     if (!S.items.length) { box.appendChild(el("p", { class: "empty", text: "Lista jest jeszcze pusta." })); return; }
-
-    // Bez podziału cenowego (domyślnie): jedna lista w kolejności z arkusza.
-    if (!CFG.groupByPrice || !PRICE) {
+    var secs = sections();
+    if (secs[0].flat) {
       box.appendChild(el("div", { class: "group flat" }, [el("ul", { class: "gifts", "aria-label": "Prezenty" }, S.items.map(card))]));
       return;
     }
-    var byKey = {};
-    S.items.forEach(function (it) { var k = PRICE.groupOf(it.price); (byKey[k] = byKey[k] || []).push(it); });
-    PRICE.GROUPS.forEach(function (g) { if (byKey[g.key]) box.appendChild(group(g, byKey[g.key])); });
+    secs.forEach(function (g, i) { box.appendChild(group(g, i, secs)); });
   }
 
-  function group(g, items) {
-    var total = items.length;
+  function group(g, i, secs) {
+    var items = g.items, total = items.length;
     var free = items.filter(function (it) { return !taken(it); }).length;
     var countText = S.surprise ? gifts(total)
       : free === 0 ? "wszystkie zajęte"
       : free + " z " + total + " " + plural(free, "wolny", "wolne", "wolnych");
+    // Właściciel przestawia całe grupy strzałkami; „Pozostałe” zawsze na końcu.
+    var arrows = null;
+    if (adminKey() && !g.rest) {
+      var lastMovable = secs[secs.length - 1].rest ? secs.length - 2 : secs.length - 1;
+      var arrow = function (dir, text, label, off) {
+        return el("button", { class: "sec-move", type: "button", "data-focus": "sec" + dir + ":" + g.key, disabled: off,
+          "aria-label": label + ": " + g.label, text: text,
+          onclick: function (e) { e.preventDefault(); e.stopPropagation(); moveSection(g.key, dir); } });
+      };
+      arrows = el("span", { class: "sec-arrows" }, [
+        arrow("up", "↑", "Grupa wyżej", i === 0),
+        arrow("down", "↓", "Grupa niżej", i >= lastMovable)
+      ]);
+    }
     var d = el("details", { class: "group", "data-group": g.key, open: isOpen(g.key) }, [
       el("summary", { "data-focus": "group:" + g.key }, [
         el("span", { class: "range", text: g.label }),
         el("span", { class: "count" + (!S.surprise && free === 0 ? " done" : ""), text: countText }),
+        arrows,
         icon("chev", "M6 9l6 6 6-6")
       ]),
-      el("ul", { class: "gifts" }, items.map(card))
+      el("ul", { class: "gifts", "aria-label": g.label }, items.map(card))
     ]);
     d.addEventListener("toggle", function () {
       if (isOpen(g.key) === d.open) return;
@@ -311,43 +334,8 @@
     var act = el("div", { class: "act" });
     var form = null;
     var title = it.title || "Bez nazwy";
-    // W trybie niespodzianki składki też nie widać: zdradziłaby, że ktoś już kupuje.
-    var group = it.group && !S.surprise;
-    var JOIN_LABEL = "Jak się podpiszesz? Pozostali ze składki zobaczą Twoje imię i kwotę, żebyście ustalili, kto kupuje.";
 
-    if (group) {
-      var people = (c && c.people) || [];
-      var me = people.filter(function (p) { return p.mine; })[0];
-      var total = sumAmounts(people);
-      act.appendChild(el("div", { class: "who" }, [
-        el("span", { text: "Składają się: " + people.map(function (p) {
-          var n = p.mine ? "Ty" : (str(p.name).trim() || "ktoś");
-          return str(p.amount).trim() ? n + " (" + str(p.amount).trim() + ")" : n;
-        }).join(", ") }),
-        total ? el("span", { class: "total", text: "Razem: " + total }) : null
-      ]));
-      if (S.openClaim === it.id) {
-        form = claimForm(it, busy, JOIN_LABEL, me ? "Zapisz" : "Dołączam", me ? "Zapisuję…" : "Dołączam…");
-      } else if (me) {
-        act.appendChild(el("span", { class: "tag-mine" + (S.justClaimed === it.id ? " pop" : "") }, [icon("", "M5 12.5l4.5 4.5L19 7.5"), "Dokładasz się"]));
-        act.appendChild(el("button", {
-          class: "link-btn", type: "button", "data-focus": "claim:" + it.id,
-          "aria-label": "Zmień kwotę: " + title, text: "Zmień kwotę",
-          onclick: function () { openForm(it.id, "group", str(me.amount)); }
-        }));
-        act.appendChild(el("button", {
-          class: "d-btn d-btn--secondary btn-ghost", type: "button", disabled: busy, "data-focus": "unclaim:" + it.id,
-          "aria-label": "Wycofaj się ze składki: " + title,
-          text: busy ? "Wycofuję…" : "Wycofaj się", onclick: function () { unclaim(it.id); }
-        }));
-      } else {
-        act.appendChild(el("button", {
-          class: "d-btn btn-primary", type: "button", "data-focus": "claim:" + it.id,
-          "aria-label": "Dołączam do składki: " + title, text: "Dołączam do składki",
-          onclick: function () { openForm(it.id, "group"); }
-        }));
-      }
-    } else if (mine) {
+    if (mine) {
       act.appendChild(el("span", { class: "tag-mine" + (S.justClaimed === it.id ? " pop" : "") }, [icon("", "M5 12.5l4.5 4.5L19 7.5"), "Twoja rezerwacja"]));
       act.appendChild(el("button", {
         class: "d-btn d-btn--secondary btn-ghost", type: "button", disabled: busy, "data-focus": "unclaim:" + it.id,
@@ -362,19 +350,12 @@
       ]));
     } else if (!S.surprise) {
       if (S.openClaim === it.id) {
-        form = S.claimMode === "group"
-          ? claimForm(it, busy, "Zaczynasz składkę: inni zobaczą, że mogą się dołożyć. Jak się podpiszesz?", "Zaczynam", "Zapisuję…")
-          : claimForm(it, busy, "Jak się podpiszesz? Zobaczą to inne osoby z listy (" + OWNER_NOM + " może to ukryć).", "Potwierdź", "Rezerwuję…");
+        form = claimForm(it, busy);
       } else {
         act.appendChild(el("button", {
           class: "d-btn btn-primary", type: "button", "data-focus": "claim:" + it.id,
           "aria-label": "Rezerwuję: " + title, text: "Rezerwuję",
-          onclick: function () { openForm(it.id, "solo"); }
-        }));
-        act.appendChild(el("button", {
-          class: "d-btn d-btn--secondary btn-ghost", type: "button", "data-focus": "group:" + it.id,
-          "aria-label": "Zacznij składkę: " + title, text: "Zacznij składkę",
-          onclick: function () { openForm(it.id, "group"); }
+          onclick: function () { openForm(it.id); }
         }));
       }
     }
@@ -385,7 +366,6 @@
         it.desc ? el("p", { class: "desc" }, linkify(it.desc)) : null,
         el("div", { class: "meta" }, [
           it.price ? el("span", { class: "price", text: it.price }) : null,
-          group ? el("span", { class: "d-tag d-tag--note", text: "Składka" }) : null,
           url ? el("a", { class: "shop", href: url, target: "_blank", rel: "noopener noreferrer", text: "Zobacz w " + (it.shop || "sklepie") + " ↗" }) : null
         ])
       ]),
@@ -395,36 +375,17 @@
     ]);
   }
 
-  // Suma kwot, które da się odczytać („100 zł”, „50”), np. „300 zł”. Pusty napis, gdy nie ma żadnej.
-  function sumAmounts(people) {
-    if (!PRICE) return "";
-    var sum = 0, any = false;
-    people.forEach(function (p) { var v = PRICE.parsePrice(p.amount); if (v !== null && isFinite(v)) { sum += v; any = true; } });
-    if (!any) return "";
-    return (Math.round(sum * 100) / 100).toFixed(2).replace(/\.00$/, "").replace(".", ",") + " zł";
-  }
-
-  function claimForm(it, busy, label, ok, okBusy) {
-    var groupMode = S.claimMode === "group";
+  function claimForm(it, busy) {
     var inp = el("input", {
       type: "text", id: "name-" + it.id, placeholder: "np. Ciocia Basia", maxlength: "40",
       autocomplete: "name", "data-focus": "name:" + it.id,
       oninput: function () { S.draft = inp.value; }
     });
     inp.value = S.draft;
-    var amt = groupMode ? el("input", {
-      type: "text", id: "amount-" + it.id, placeholder: "np. 100 zł", maxlength: "20", inputmode: "decimal",
-      autocomplete: "off", "data-focus": "amount:" + it.id,
-      oninput: function () { S.amountDraft = amt.value; }
-    }) : null;
-    if (amt) amt.value = S.amountDraft;
-    return el("form", { class: "claim-form" + (groupMode ? " group" : "") + (S.formFresh ? " enter" : ""),
-      onsubmit: function (e) { e.preventDefault(); claim(it.id, inp.value.trim()); } }, [
-      el("label", { for: "name-" + it.id, text: label }),
+    return el("form", { class: "claim-form" + (S.formFresh ? " enter" : ""), onsubmit: function (e) { e.preventDefault(); claim(it.id, inp.value.trim()); } }, [
+      el("label", { for: "name-" + it.id, text: "Jak się podpiszesz? Zobaczą to inne osoby z listy (" + OWNER_NOM + " może to ukryć)." }),
       inp,
-      amt ? el("label", { class: "sub", for: "amount-" + it.id, text: "Ile chcesz dołożyć? Możesz zostawić puste." }) : null,
-      amt,
-      el("button", { class: "d-btn btn-primary", type: "submit", disabled: busy, "data-focus": "confirm:" + it.id, text: busy ? okBusy : ok }),
+      el("button", { class: "d-btn btn-primary", type: "submit", disabled: busy, "data-focus": "confirm:" + it.id, text: busy ? "Rezerwuję…" : "Potwierdź" }),
       el("button", { class: "d-btn d-btn--secondary btn-ghost", type: "button", "data-focus": "close:" + it.id, text: "Zamknij", onclick: function () { closeForm(it.id); } }),
       el("div", { class: "err", role: "alert", text: S.claimErr && S.claimErr.id === it.id ? S.claimErr.msg : "" })
     ]);
@@ -438,8 +399,8 @@
     if (S.edit && S.edit.id === it.id) return editForm(it);
     var busy = !!S.busy["rm:" + it.id];
     if (S.confirmRemove !== it.id) {
-      // Przesuwanie tylko w zwykłej liście: przy podziale cenowym kolejność i tak miesza grupa.
-      var i = S.items.indexOf(it), lastI = S.items.length - 1, flat = !CFG.groupByPrice;
+      // Przeciąganie i „Na koniec” działają w obrębie grupy; do innej grupy przenosi pole Grupa w „Edytuj”.
+      var at = sectionOf(it.id), i = at ? at.j : 0, lastI = at ? at.secs[at.i].items.length - 1 : 0, flat = true;
       // Uchwyt: przeciąganie myszą albo palcem, a z klawiatury strzałki w górę i w dół.
       var grip = flat ? el("button", { class: "link-btn grip", type: "button", "data-focus": "drag:" + it.id,
         "aria-label": "Przesuń: " + title + ". Strzałki w górę i w dół zmieniają miejsce.",
@@ -454,7 +415,7 @@
         el("button", { class: "link-btn", type: "button", "data-focus": "ed:" + it.id, "aria-label": "Edytuj: " + title, text: "Edytuj",
           onclick: function () { openEdit(it); } }),
         flat ? el("button", { class: "link-btn", type: "button", "data-focus": "end:" + it.id, disabled: i >= lastI,
-          "aria-label": "Przesuń na koniec listy: " + title, text: "Na koniec", onclick: function () { moveGift(it.id, "end"); } }) : null,
+          "aria-label": "Przesuń na koniec " + (at && !at.secs[at.i].flat ? "grupy" : "listy") + ": " + title, text: "Na koniec", onclick: function () { moveGift(it.id, "end"); } }) : null,
         el("button", { class: "link-btn", type: "button", "data-focus": "rm:" + it.id, "aria-label": "Usuń z listy: " + title, text: "Usuń z listy",
           onclick: function () { S.confirmRemove = it.id; S.focusConfirm = true; render(); } })
       ]);
@@ -475,10 +436,11 @@
     { k: "price", label: "Cena", max: 40, ph: "np. ok. 150 zł" },
     { k: "desc", label: "Opis", max: 300, area: true },
     { k: "shop", label: "Sklep", max: 60 },
-    { k: "url", label: "Link", max: 500, mode: "url", ph: "https://…" }
+    { k: "url", label: "Link", max: 500, mode: "url", ph: "https://…" },
+    { k: "group", label: "Grupa", max: 40, ph: "np. Książki (puste = Pozostałe)", list: true }
   ];
   function openEdit(it) {
-    S.edit = { id: it.id, title: it.title, price: it.price, desc: it.desc, shop: it.shop, url: it.url, err: "", fresh: true };
+    S.edit = { id: it.id, title: it.title, price: it.price, desc: it.desc, shop: it.shop, url: it.url, group: it.group, err: "", fresh: true };
     S.confirmRemove = null; render();
   }
   function closeEdit(id) {
@@ -491,11 +453,14 @@
       var id = "ed-" + f.k + "-" + it.id;
       var inp = el(f.area ? "textarea" : "input", {
         id: id, class: f.area ? "input" : null, type: f.area ? null : "text", inputmode: f.mode || null, maxlength: String(f.max),
-        placeholder: f.ph || null, "data-focus": "edf:" + f.k + ":" + it.id,
+        placeholder: f.ph || null, "data-focus": "edf:" + f.k + ":" + it.id, list: f.list ? "groups-" + it.id : null,
+        autocomplete: f.list ? "off" : null,
         oninput: function () { E[f.k] = inp.value; }
       });
       inp.value = E[f.k] || "";
-      return el("div", { class: "d-field" }, [el("label", { for: id, text: f.label }), inp]);
+      // Podpowiedzi istniejących grup, żeby „Lego” i „LEGO” nie robiły dwóch sekcji.
+      var dl = f.list ? el("datalist", { id: "groups-" + it.id }, groupNames().map(function (g) { return el("option", { value: g }); })) : null;
+      return el("div", { class: "d-field" }, [el("label", { for: id, text: f.label }), inp, dl]);
     });
     var fresh = E.fresh; E.fresh = false;
     var form = el("form", { class: "owner edit-form" + (fresh ? " enter" : ""), onsubmit: function (e) { e.preventDefault(); saveEdit(it.id); } }, fields.concat([
@@ -515,7 +480,7 @@
     var url = String(E.url || "").trim();
     if (url && !/^https?:\/\//i.test(url)) { E.err = "Link musi zaczynać się od https://"; render(); return; }
     S.busy[k] = true; E.err = ""; render();
-    api.post({ action: "edit", key: adminKey(), id: id, title: E.title, price: E.price, desc: E.desc, shop: E.shop, url: url }).then(function (r) {
+    api.post({ action: "edit", key: adminKey(), id: id, title: E.title, price: E.price, desc: E.desc, shop: E.shop, url: url, group: E.group || "" }).then(function (r) {
       if (r && r.ok) { S.edit = null; return; }
       E.err = r && r.error === "bad_key" ? "Klucz tej listy nie pasuje. Wklej go ponownie w aplikacji „Dodaj prezent”."
         : r && r.error === "not_found" ? "Tego prezentu już nie ma na liście."
@@ -547,29 +512,18 @@
     });
   }
 
-  // Przesunięcie widać od razu; zapisy idą po kolei, więc szybkie klikanie nie miesza kolejności.
-  // Dopóki coś czeka w kolejce, odświeżanie nie nadpisuje lokalnej kolejności.
+  // Przesunięcie widać od razu; zapisy (pełna nowa kolejność) idą po kolei, więc szybkie klikanie
+  // nie miesza kolejności. Dopóki coś czeka w kolejce, odświeżanie nie nadpisuje lokalnej kolejności.
   var moveChain = Promise.resolve();
   S.moving = 0;
-  function indexOf(id) {
-    var from = -1;
-    S.items.forEach(function (x, j) { if (x.id === id) from = j; });
-    return from;
-  }
-  function moveGift(id, dir) {
-    var from = indexOf(id);
-    moveTo(id, dir === "up" ? from - 1 : dir === "down" ? from + 1 : S.items.length - 1);
-  }
-  function moveTo(id, to) {
-    var from = indexOf(id);
-    if (from < 0 || to < 0 || to >= S.items.length || to === from) return;
-    var it = S.items.splice(from, 1)[0];
-    S.items.splice(to, 0, it);
-    var before = S.items[to + 1] ? S.items[to + 1].id : "";
-    var key = adminKey();
+  function applyOrder(secs) {
+    var order = [];
+    secs.forEach(function (g) { order = order.concat(g.items); });
+    S.items = order;
+    var ids = order.map(function (x) { return x.id; }), key = adminKey();
     S.moving++; S.error = ""; render();
     moveChain = moveChain.then(function () {
-      return api.post({ action: "move", id: id, before: before, key: key }).then(function (r) {
+      return api.post({ action: "reorder", ids: ids, key: key }).then(function (r) {
         if (!r || !r.ok) S.error = r && r.error === "bad_key"
           ? "Klucz tej listy nie pasuje. Wklej go ponownie w aplikacji „Dodaj prezent”."
           : "Nie udało się zapisać nowej kolejności. Pokazuję aktualną listę.";
@@ -580,6 +534,29 @@
         if (!S.moving) { var err = S.error; return refresh().then(function () { if (err) { S.error = err; render(); } }); }
       });
     });
+  }
+  function moveGift(id, dir) {
+    var at = sectionOf(id);
+    if (!at) return;
+    var n = at.secs[at.i].items.length;
+    moveTo(id, dir === "up" ? at.j - 1 : dir === "down" ? at.j + 1 : n - 1);
+  }
+  // `to` = nowe miejsce w obrębie grupy prezentu.
+  function moveTo(id, to) {
+    var at = sectionOf(id);
+    if (!at) return;
+    var list = at.secs[at.i].items;
+    if (to < 0 || to >= list.length || to === at.j) return;
+    list.splice(to, 0, list.splice(at.j, 1)[0]);
+    applyOrder(at.secs);
+  }
+  function moveSection(key, dir) {
+    var secs = sections(), i = -1;
+    secs.forEach(function (g, k) { if (g.key === key) i = k; });
+    var j = dir === "up" ? i - 1 : i + 1;
+    if (i < 0 || j < 0 || j >= secs.length || secs[i].rest || secs[j].rest) return;
+    secs.splice(j, 0, secs.splice(i, 1)[0]);
+    applyOrder(secs);
   }
 
   // ---------- przeciąganie ----------
@@ -592,7 +569,8 @@
     if (!li || !li.parentNode) return;
     var lis = Array.prototype.slice.call(li.parentNode.children);
     var from = lis.indexOf(li);
-    if (from < 0 || lis.length !== S.items.length) return;
+    var at = sectionOf(id);
+    if (from < 0 || !at || lis.length !== at.secs[at.i].items.length) return;
     e.preventDefault();
     var sy = window.scrollY;
     D = {
@@ -651,15 +629,7 @@
   function dragCancel() { endDrag(false); }
 
   // ---------- akcje ----------
-  function openForm(id, mode, amount) {
-    S.openClaim = id; S.claimMode = mode || "solo"; S.draft = S.myName; S.amountDraft = amount || "";
-    S.claimErr = null; S.formFresh = true; render();
-  }
-  // „100” albo „100,50” bez waluty dostaje „zł”.
-  function normAmount(a) {
-    a = String(a || "").trim();
-    return /^\d[\d\s]*([.,]\d{1,2})?$/.test(a) ? a.replace(".", ",") + " zł" : a;
-  }
+  function openForm(id) { S.openClaim = id; S.draft = S.myName; S.claimErr = null; S.formFresh = true; render(); }
   function closeForm(id) {
     S.openClaim = null; S.claimErr = null; render();
     var b = document.querySelector('[data-focus="claim:' + id + '"]'); if (b) b.focus();
@@ -670,7 +640,7 @@
     return api.list().then(function (d) {
       if (!d || !d.ok) throw new Error((d && d.error) || "bad");
       if (!S.moving) S.items = (d.items || []).map(function (x) {
-        return { id: str(x.id), title: str(x.title), desc: str(x.desc), price: str(x.price), shop: str(x.shop), url: str(x.url), group: x.group === true };
+        return { id: str(x.id), title: str(x.title), desc: str(x.desc), price: str(x.price), shop: str(x.shop), url: str(x.url), group: typeof x.group === "string" ? x.group.trim() : "" };
       });
       S.claims = d.claims || {};
       S.loaded = true; S.error = "";
@@ -684,17 +654,14 @@
     if (!name) { S.claimErr = { id: id, msg: "Wpisz, jak się podpiszesz." }; S.focusInput = true; render(); return; }
     S.myName = name; lsSet("gift-name", name);
     S.busy[id] = true; S.claimErr = null; render();
-    var grp = S.claimMode === "group";
-    api.post({ action: "claim", id: id, name: name, group: grp, amount: grp ? normAmount(S.amountDraft) : "" }).then(function (r) {
+    api.post({ action: "claim", id: id, name: name }).then(function (r) {
       if (r && r.ok) { S.openClaim = null; S.justClaimed = id; return; }
-      var e = r && r.error;
-      S.claimErr = { id: id, msg: e === "taken" ? "Ktoś właśnie zarezerwował ten prezent. Wybierz inny."
-        : e === "group_started" ? "Ktoś właśnie zaczął składkę na ten prezent. Możesz do niej dołączyć."
-        : e === "full" ? "Ta składka ma już komplet osób."
-        : "Nie udało się zapisać. Spróbuj ponownie za chwilę." };
-      if (e === "taken" || e === "group_started") { S.openClaim = null; S.error = S.claimErr.msg; }
+      S.claimErr = { id: id, msg: r && r.error === "taken"
+        ? "Ktoś właśnie zarezerwował ten prezent. Wybierz inny."
+        : "Nie udało się zarezerwować. Spróbuj ponownie za chwilę." };
+      if (r && r.error === "taken") S.openClaim = null;
     }).catch(function () {
-      S.claimErr = { id: id, msg: "Nie udało się zapisać. Spróbuj ponownie za chwilę." };
+      S.claimErr = { id: id, msg: "Nie udało się zarezerwować. Spróbuj ponownie za chwilę." };
     }).then(function () {
       S.busy[id] = false;
       var keep = S.justClaimed;
@@ -709,9 +676,9 @@
     if (S.busy[id]) return;
     S.busy[id] = true; render();
     api.post({ action: "unclaim", id: id }).then(function (r) {
-      if (!r || !r.ok) S.error = "Nie udało się anulować. Spróbuj ponownie.";
+      if (!r || !r.ok) S.error = "Nie udało się anulować rezerwacji. Spróbuj ponownie.";
     }).catch(function () {
-      S.error = "Nie udało się anulować. Spróbuj ponownie.";
+      S.error = "Nie udało się anulować rezerwacji. Spróbuj ponownie.";
     }).then(function () {
       S.busy[id] = false;
       return refresh().then(function () {

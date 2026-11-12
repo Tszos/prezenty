@@ -14,7 +14,8 @@
   var S = {
     keys: loadKeys(),
     person: lsGet(LAST_LS) || "",
-    form: { title: "", price: "", desc: "", shop: "", url: "" },
+    form: { title: "", price: "", desc: "", shop: "", url: "", group: "" },
+    groups: {},           // istniejące grupy na każdej liście (podpowiedzi w polu Grupa)
     touched: {},          // pola, które użytkownik sam zmienił: podgląd ich nie nadpisuje
     preview: "",          // "", "loading", "done", "none"
     busy: false, error: "", done: null, notice: "",
@@ -107,7 +108,7 @@
         if (key !== "demo") return later({ ok: false, error: "bad_key" });
         var d = demoData();
         if (d && d.items) {
-          d.items.push({ id: "n" + Date.now(), title: item.title, desc: item.desc, price: item.price, shop: item.shop, url: item.url });
+          d.items.push({ id: "n" + Date.now(), title: item.title, desc: item.desc, price: item.price, shop: item.shop, url: item.url, group: item.group || "" });
           lsSet(lsKey, JSON.stringify(d));
         }
         return later({ ok: true });
@@ -305,6 +306,24 @@
     ]);
   }
 
+  // Grupy z listy danej osoby, w kolejności z listy; wczytywane raz, w tle.
+  function groupsOf(k) {
+    if (!k) return [];
+    if (!S.groups[k]) {
+      S.groups[k] = [];
+      api(k).list().then(function (d) {
+        var seen = {}, out = [];
+        ((d && d.items) || []).forEach(function (x) {
+          var g = String(x.group || "").trim(), low = g.toLowerCase();
+          if (g && !seen[low]) { seen[low] = true; out.push(g); }
+        });
+        S.groups[k] = out;
+        if (out.length && document.getElementById("f-groups")) render();
+      }).catch(function () {});
+    }
+    return S.groups[k];
+  }
+
   function formView(people) {
     if (people.indexOf(S.person) < 0) S.person = people[0];
     var pick = null;
@@ -329,6 +348,9 @@
       field("desc", "Opis", { maxlength: "300", rows: "2", placeholder: "np. kolor, rozmiar, wariant" }),
       field("shop", "Sklep", { maxlength: "60", autocomplete: "off" }),
       field("url", "Link", { type: "url", maxlength: "500", inputmode: "url", placeholder: "https://…" }),
+      field("group", "Grupa", { maxlength: "40", autocomplete: "off", list: "f-groups", placeholder: "np. Książki" },
+        "Wybierz istniejącą grupę albo wpisz nową. Puste = „Pozostałe”."),
+      el("datalist", { id: "f-groups" }, groupsOf(S.person).map(function (g) { return el("option", { value: g }); })),
       el("p", { class: "hint status", role: "status", text: status }),
       el("div", { class: "err", role: "alert", text: S.error }),
       el("button", { class: "d-btn btn-primary btn-wide", type: "submit", disabled: S.busy,
@@ -350,7 +372,7 @@
         } }),
         el("a", { class: "d-btn d-btn--secondary btn-ghost btn-link", href: "../" + d.person + "/", text: "Zobacz listę " + gen(d.person) }),
         el("button", { class: "d-btn d-btn--secondary btn-ghost", type: "button", text: "Dodaj kolejny", onclick: function () {
-          S.done = null; S.form = { title: "", price: "", desc: "", shop: "", url: "" }; S.touched = {}; S.preview = "";
+          S.done = null; S.form = { title: "", price: "", desc: "", shop: "", url: "", group: "" }; S.touched = {}; S.preview = "";
           S.shared = false; S.editing = false;
           history.replaceState(null, "", location.pathname); render();
           var t = document.getElementById("f-title"); if (t) t.focus();
@@ -424,7 +446,7 @@
   function send() {
     if (S.busy) return;
     var f = S.form, k = S.person;
-    var item = { title: f.title.trim(), price: normPrice(f.price), desc: f.desc.trim(), shop: f.shop.trim(), url: f.url.trim(),
+    var item = { title: f.title.trim(), price: normPrice(f.price), desc: f.desc.trim(), shop: f.shop.trim(), url: f.url.trim(), group: (f.group || "").trim(),
       keepTitle: !!S.touched.title, autoShop: !S.touched.shop };
     if (item.url && !/^https?:\/\//i.test(item.url)) item.url = "https://" + item.url;
     S.busy = true; S.error = ""; render();

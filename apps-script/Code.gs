@@ -1,12 +1,12 @@
 /**
  * Backend listy prezentów — Google Apps Script podpięty pod arkusz Google.
  *
- * Arkusz "Prezenty":     ID | Nazwa | Opis | Cena | Sklep | Link
- * Arkusz "Rezerwacje":   ID prezentu | Kto | Token | Data | Składka | Kwota
+ * Arkusz "Prezenty":     ID | Nazwa | Opis | Cena | Sklep | Link | Grupa
+ * Arkusz "Rezerwacje":   ID prezentu | Kto | Token | Data
  *
  * Ty wpisujesz prezenty do arkusza "Prezenty" (kolumnę ID zostaw pustą —
- * skrypt sam ją uzupełni). Rezerwacje zapisują się w arkuszu "Rezerwacje".
- * Każdy prezent można kupić samemu albo zrobić na niego składkę (kilka osób, opcjonalnie z kwotą).
+ * skrypt sam ją uzupełni). Grupa (np. „Książki”, „LEGO”) dzieli listę na sekcje; pusta = „Pozostałe”.
+ * Rezerwacje zapisują się w arkuszu "Rezerwacje".
  * Jeśli chcesz zachować niespodziankę, po prostu do niego nie zaglądaj :)
  *
  * Dodawanie prezentów z telefonu (aplikacja docs/dodaj/) wymaga klucza zapisanego
@@ -18,9 +18,8 @@
 
 var ITEMS_SHEET = 'Prezenty';
 var CLAIMS_SHEET = 'Rezerwacje';
-var ITEM_HEADERS = ['ID', 'Nazwa', 'Opis', 'Cena', 'Sklep', 'Link'];
-var GROUP_MAX = 20;
-var CLAIM_HEADERS = ['ID prezentu', 'Kto', 'Token', 'Data', 'Składka', 'Kwota'];
+var ITEM_HEADERS = ['ID', 'Nazwa', 'Opis', 'Cena', 'Sklep', 'Link', 'Grupa'];
+var CLAIM_HEADERS = ['ID prezentu', 'Kto', 'Token', 'Data'];
 
 /** Uruchom raz ręcznie z edytora: tworzy arkusze z nagłówkami i przykładowym prezentem. */
 function setup() {
@@ -68,6 +67,11 @@ function doPost(e) {
     if (!keyOk(body.key)) return json({ ok: false, error: 'bad_key' });
     return withLock(function () { return editItem(String(body.id || ''), body); });
   }
+  if (body.action === 'reorder') {
+    if (!keyOk(body.key)) return json({ ok: false, error: 'bad_key' });
+    var ids = Array.isArray(body.ids) ? body.ids.map(String) : [];
+    return withLock(function () { return reorderItems(ids); });
+  }
   if (body.action === 'move') {
     if (!keyOk(body.key)) return json({ ok: false, error: 'bad_key' });
     return withLock(function () { return moveItem(String(body.id || ''), String(body.before || '')); });
@@ -77,7 +81,7 @@ function doPost(e) {
   var id = String(body.id || '');
 
   return withLock(function () {
-    if (body.action === 'claim') return claim(id, String(body.name || ''), token, body.group === true, String(body.amount || ''));
+    if (body.action === 'claim') return claim(id, String(body.name || ''), token);
     if (body.action === 'unclaim') return unclaim(id, token);
     return { ok: false, error: 'unknown_action' };
   });
@@ -131,7 +135,7 @@ function readItems() {
       price: String(r[3]).trim(),
       shop: String(r[4]).trim(),
       url: String(r[5]).trim(),
-      group: false
+      group: String(r[6]).trim().slice(0, 40)
     });
   }
   return items;
@@ -142,81 +146,31 @@ function readClaims() {
   var last = s.getLastRow();
   if (last < 2) return [];
   return s.getRange(2, 1, last - 1, CLAIM_HEADERS.length).getValues().map(function (r, i) {
-    return { row: i + 2, id: String(r[0]).trim(), name: String(r[1]), token: String(r[2]), group: isYes(r[4]), amount: String(r[5]).trim() };
+    return { row: i + 2, id: String(r[0]).trim(), name: String(r[1]), token: String(r[2]) };
   }).filter(function (c) { return c.id; });
-}
-
-/** „TAK”, „x”, 1 albo zaznaczone pole wyboru. */
-function isYes(v) {
-  return v === true || /^(tak|t|x|1|yes|true)$/i.test(String(v == null ? '' : v).trim());
-}
-
-/** Składka = ktoś ją zaczął albo na prezencie jest więcej niż jedna osoba. */
-function isGroup(rows) {
-  return rows.length > 1 || rows.some(function (c) { return c.group; });
-}
-
-/**
- * Rezerwacje do wysłania na stronę. Token nigdy nie wychodzi na zewnątrz — tylko informacja,
- * czy to Twoja rezerwacja. `name` i `mine` zostają dla starszej wersji strony.
- * Czysta funkcja, żeby dało się ją przetestować w Node.
- */
-function shapeClaims(items, rows, token) {
-  var by = {};
-  rows.forEach(function (c) { (by[c.id] = by[c.id] || []).push(c); });
-  var claims = {};
-  items.forEach(function (it) {
-    var rs = by[it.id];
-    if (!rs) return;
-    if (isGroup(rs)) it.group = true;
-    var people = rs.map(function (c) { return { name: String(c.name), mine: !!token && c.token === token, amount: String(c.amount || '') }; });
-    claims[it.id] = {
-      name: people.map(function (p) { return p.name; }).filter(Boolean).join(', '),
-      mine: people.some(function (p) { return p.mine; }),
-      people: people
-    };
-  });
-  return claims;
 }
 
 function list(token) {
   var items = readItems();
-  return { ok: true, items: items, claims: shapeClaims(items, readClaims(), token) };
+  var claims = {};
+  readClaims().forEach(function (c) {
+    // Token nigdy nie wychodzi na zewnątrz — tylko informacja, czy to Twoja rezerwacja.
+    claims[c.id] = { name: c.name, mine: !!token && c.token === token };
+  });
+  return { ok: true, items: items, claims: claims };
 }
 
-/**
- * Co zrobić z rezerwacją: rows = rezerwacje tego prezentu, group = czy ta osoba się składa.
- * Zwraca { update: wiersz, group } dla własnej rezerwacji, { append: true, group } albo { error }.
- * Czysta funkcja, żeby dało się ją przetestować w Node.
- */
-function claimPlan(rows, token, group) {
-  var mine = rows.filter(function (c) { return c.token === token; })[0];
-  if (mine) {
-    // Sam na prezencie możesz przejść między „kupuję sam” a „zaczynam składkę”; w składce zostajesz w niej.
-    return { update: mine.row, group: rows.length > 1 ? true : group };
-  }
-  if (!rows.length) return { append: true, group: group };
-  if (!isGroup(rows)) return { error: 'taken' };
-  if (!group) return { error: 'group_started' };
-  if (rows.length >= GROUP_MAX) return { error: 'full' };
-  return { append: true, group: true };
-}
-
-function claim(id, name, token, group, amount) {
+function claim(id, name, token) {
   var exists = readItems().some(function (it) { return it.id === id; });
   if (!exists) return { ok: false, error: 'not_found' };
   name = sheetSafe(name.trim().slice(0, 40));
-  var p = claimPlan(readClaims().filter(function (c) { return c.id === id; }), token, group);
-  if (p.error) return { ok: false, error: p.error };
-  amount = p.group ? sheetSafe(clip(amount, 20)) : '';
-  var s = sheet(CLAIMS_SHEET);
-  if (!String(s.getRange(1, 5).getValue()).trim()) s.getRange(1, 5, 1, 2).setValues([['Składka', 'Kwota']]);
-  var row = p.update;
-  if (row) s.getRange(row, 2).setValue(name);
-  else { s.appendRow([id, name, token, new Date()]); row = s.getLastRow(); }
-  // Kwota jako tekst, żeby „100” nie zamieniło się w liczbę bez „zł”.
-  s.getRange(row, 6).setNumberFormat('@');
-  s.getRange(row, 5, 1, 2).setValues([[p.group ? 'TAK' : '', amount]]);
+  var existing = readClaims().filter(function (c) { return c.id === id; })[0];
+  if (existing) {
+    if (existing.token !== token) return { ok: false, error: 'taken' };
+    sheet(CLAIMS_SHEET).getRange(existing.row, 2).setValue(name);
+    return { ok: true };
+  }
+  sheet(CLAIMS_SHEET).appendRow([id, name, token, new Date()]);
   return { ok: true };
 }
 
@@ -292,14 +246,14 @@ function moveItem(id, before) {
 function cleanEdit(b) {
   var out = {
     title: clip(b.title, 120), desc: clip(b.desc, 300), price: clip(b.price, 40),
-    shop: clip(b.shop, 60), url: clip(b.url, 500)
+    shop: clip(b.shop, 60), url: clip(b.url, 500), group: clip(b.group, 40)
   };
   if (!out.title) return { error: 'no_title' };
   if (out.url && !/^https?:\/\//i.test(out.url)) return { error: 'bad_url' };
   return out;
 }
 
-/** Nadpisuje nazwę, opis, cenę, sklep i link prezentu. Rezerwacje zostają. */
+/** Nadpisuje nazwę, opis, cenę, sklep, link i grupę prezentu. Rezerwacje zostają. */
 function editItem(id, b) {
   var f = cleanEdit(b);
   if (f.error) return { ok: false, error: f.error };
@@ -309,8 +263,43 @@ function editItem(id, b) {
   var ids = s.getRange(2, 1, last - 1, 1).getValues(), row = 0;
   for (var i = 0; i < ids.length; i++) if (String(ids[i][0]).trim() === id) { row = i + 2; break; }
   if (!row) return { ok: false, error: 'not_found' };
+  ensureGroupHeader(s);
   s.getRange(row, 4).setNumberFormat('@');
-  s.getRange(row, 2, 1, 5).setValues([[sheetSafe(f.title), sheetSafe(f.desc), sheetSafe(f.price), sheetSafe(f.shop), f.url]]);
+  s.getRange(row, 2, 1, 6).setValues([[sheetSafe(f.title), sheetSafe(f.desc), sheetSafe(f.price), sheetSafe(f.shop), f.url, sheetSafe(f.group)]]);
+  return { ok: true };
+}
+
+function ensureGroupHeader(s) {
+  // Pusty nagłówek albo „Składka” z krótko działającej wersji ze składkami.
+  var h = String(s.getRange(1, 7).getValue()).trim();
+  if (!h || h === 'Składka') s.getRange(1, 7).setValue('Grupa');
+}
+
+/**
+ * Nowa kolejność wierszy: najpierw prezenty z `ids` w tej kolejności, potem reszta jak była.
+ * Zwraca dla każdego wiersza (od 2) jego miejsce. Czysta funkcja, żeby dało się ją przetestować w Node.
+ */
+function reorderRanks(rowIds, ids) {
+  var pos = {};
+  ids.forEach(function (id, i) { id = String(id).trim(); if (id && !(id in pos)) pos[id] = i; });
+  var n = ids.length;
+  return rowIds.map(function (id, i) {
+    id = String(id).trim();
+    return id in pos ? pos[id] : n + i;
+  });
+}
+
+/** Ustawia kolejność wierszy sortowaniem po kolumnie pomocniczej, więc formaty i formuły jadą z wierszami. */
+function reorderItems(ids) {
+  var s = sheet(ITEMS_SHEET), last = s.getLastRow();
+  if (last < 3 || !ids.length) return { ok: true };
+  var col = Math.max(s.getLastColumn(), ITEM_HEADERS.length) + 1;
+  if (col > s.getMaxColumns()) s.insertColumnAfter(s.getMaxColumns());
+  var ranks = reorderRanks(s.getRange(2, 1, last - 1, 1).getValues().map(function (r) { return r[0]; }), ids);
+  var helper = s.getRange(2, col, last - 1, 1);
+  helper.setValues(ranks.map(function (r) { return [r]; }));
+  s.getRange(2, 1, last - 1, col).sort({ column: col, ascending: true });
+  helper.clearContent();
   return { ok: true };
 }
 
@@ -319,7 +308,8 @@ function addItem(b) {
   if (!b.title) return { ok: false, error: 'no_title' };
   var id = Utilities.getUuid().slice(0, 8);
   var s = sheet(ITEMS_SHEET);
-  s.appendRow([id, sheetSafe(b.title), sheetSafe(b.desc), sheetSafe(b.price), sheetSafe(b.shop), b.url]);
+  if (b.group) ensureGroupHeader(s);
+  s.appendRow([id, sheetSafe(b.title), sheetSafe(b.desc), sheetSafe(b.price), sheetSafe(b.shop), b.url, sheetSafe(b.group)]);
   // Cena jako tekst, żeby „100” nie zamieniło się w liczbę bez „zł”.
   s.getRange(s.getLastRow(), 4).setNumberFormat('@');
   return { ok: true, id: id, title: b.title, price: b.price, shop: b.shop };
@@ -332,7 +322,7 @@ function addItem(b) {
 function enrich(b) {
   var out = {
     title: clip(b.title, 200), desc: clip(b.desc, 300), price: clip(b.price, 40),
-    shop: clip(b.shop, 60), url: clip(b.url, 500)
+    shop: clip(b.shop, 60), url: clip(b.url, 500), group: clip(b.group, 40)
   };
   if (out.url && !/^https?:\/\//i.test(out.url)) out.url = '';
   if (out.url) {
@@ -494,4 +484,4 @@ function unclaim(id, token) {
 
 // Dla testów w Node (w Apps Script `module` nie istnieje).
 if (typeof module !== 'undefined') module.exports = { extractMeta: extractMeta, decodeEntities: decodeEntities, cleanTitle: cleanTitle, slugTitle: slugTitle, shopFromUrl: shopFromUrl, planMove: planMove,
-  shapeClaims: shapeClaims, cleanEdit: cleanEdit, isYes: isYes, claimPlan: claimPlan };
+  cleanEdit: cleanEdit, reorderRanks: reorderRanks };

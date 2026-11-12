@@ -73,14 +73,15 @@ Apps Script API w <https://script.google.com/home/usersettings>). Adresy `/exec`
 
 ### 3. Dodawanie prezentów
 
-Wpisuj kolejne wiersze w zakładce **Prezenty**: `Nazwa`, `Opis`, `Cena`, `Sklep`, `Link`.
+Wpisuj kolejne wiersze w zakładce **Prezenty**: `Nazwa`, `Opis`, `Cena`, `Sklep`, `Link`, `Grupa`.
 Kolumnę `ID` zostaw pustą, uzupełni się sama. Kolejność wierszy = kolejność na stronie.
 Aby usunąć prezent, usuń jego wiersz. Aby ręcznie zwolnić rezerwację, usuń wiersz w zakładce **Rezerwacje**.
-Każdy prezent można zarezerwować samemu albo zacząć na niego składkę: wtedy kolejne osoby dołączają,
-opcjonalnie z kwotą (kolumny `Składka` i `Kwota` w zakładce **Rezerwacje**).
+`Grupa` (np. „Książki”, „LEGO”) dzieli listę na sekcje w kolejności pierwszego prezentu z każdej grupy;
+prezenty bez grupy trafiają do „Pozostałe” na końcu. Bez żadnej grupy lista jest jedna.
 
 Właściciel listy (przeglądarka z kluczem z aplikacji „Dodaj prezent”) może też na samej stronie listy
-edytować prezenty, zmieniać kolejność (przeciąganiem) i usuwać pozycje. U niego rezerwacje są
+edytować prezenty (także ich grupę), zmieniać kolejność przeciąganiem w obrębie grupy, przestawiać
+całe grupy strzałkami i usuwać pozycje. U niego rezerwacje są
 domyślnie ukryte; „Pokaż rezerwacje” działa do zamknięcia karty.
 
 > Zmiany w `Code.gs` wymagają nowej wersji wdrożenia (**Wdróż → Zarządzaj wdrożeniami → Edytuj → Nowa wersja**).
