@@ -195,6 +195,8 @@
   // ---------- render ----------
   // Cała lista jest budowana od nowa, więc zapamiętujemy fokus i kursor, żeby odświeżenie ich nie gubiło.
   function render() {
+    // W trakcie przeciągania nie przebudowujemy listy; zrobimy to po upuszczeniu.
+    if (S.dragging) { S.renderPending = true; return; }
     var a = document.activeElement, focusKey = a && a.getAttribute && a.getAttribute("data-focus");
     var sel = a && a.tagName === "INPUT" ? [a.selectionStart, a.selectionEnd] : null;
 
@@ -397,16 +399,21 @@
     if (S.confirmRemove !== it.id) {
       // Przesuwanie tylko w zwykłej liście: przy podziale cenowym kolejność i tak miesza grupa.
       var i = S.items.indexOf(it), lastI = S.items.length - 1, flat = !CFG.groupByPrice;
-      function mv(dir, label, text, off) {
-        return el("button", { class: "link-btn", type: "button", "data-focus": dir + ":" + it.id, disabled: off,
-          "aria-label": label + ": " + title, text: text, onclick: function () { moveGift(it.id, dir); } });
-      }
+      // Uchwyt: przeciąganie myszą albo palcem, a z klawiatury strzałki w górę i w dół.
+      var grip = flat ? el("button", { class: "link-btn grip", type: "button", "data-focus": "drag:" + it.id,
+        "aria-label": "Przesuń: " + title + ". Strzałki w górę i w dół zmieniają miejsce.",
+        onpointerdown: function (e) { startDrag(e, it.id); },
+        onkeydown: function (e) {
+          var dir = e.key === "ArrowUp" ? "up" : e.key === "ArrowDown" ? "down" : "";
+          if (dir) { e.preventDefault(); moveGift(it.id, dir); }
+        }
+      }, [icon("", "M9 6h.01M15 6h.01M9 12h.01M15 12h.01M9 18h.01M15 18h.01"), "Przeciągnij"]) : null;
       return el("div", { class: "owner" }, [
+        grip,
         el("button", { class: "link-btn", type: "button", "data-focus": "ed:" + it.id, "aria-label": "Edytuj: " + title, text: "Edytuj",
           onclick: function () { openEdit(it); } }),
-        flat ? mv("up", "Przesuń wyżej", "↑ Wyżej", i <= 0) : null,
-        flat ? mv("down", "Przesuń niżej", "↓ Niżej", i >= lastI) : null,
-        flat ? mv("end", "Przesuń na koniec listy", "Na koniec", i >= lastI) : null,
+        flat ? el("button", { class: "link-btn", type: "button", "data-focus": "end:" + it.id, disabled: i >= lastI,
+          "aria-label": "Przesuń na koniec listy: " + title, text: "Na koniec", onclick: function () { moveGift(it.id, "end"); } }) : null,
         el("button", { class: "link-btn", type: "button", "data-focus": "rm:" + it.id, "aria-label": "Usuń z listy: " + title, text: "Usuń z listy",
           onclick: function () { S.confirmRemove = it.id; S.focusConfirm = true; render(); } })
       ]);
@@ -506,10 +513,17 @@
   // Dopóki coś czeka w kolejce, odświeżanie nie nadpisuje lokalnej kolejności.
   var moveChain = Promise.resolve();
   S.moving = 0;
-  function moveGift(id, dir) {
+  function indexOf(id) {
     var from = -1;
     S.items.forEach(function (x, j) { if (x.id === id) from = j; });
-    var to = dir === "up" ? from - 1 : dir === "down" ? from + 1 : S.items.length - 1;
+    return from;
+  }
+  function moveGift(id, dir) {
+    var from = indexOf(id);
+    moveTo(id, dir === "up" ? from - 1 : dir === "down" ? from + 1 : S.items.length - 1);
+  }
+  function moveTo(id, to) {
+    var from = indexOf(id);
     if (from < 0 || to < 0 || to >= S.items.length || to === from) return;
     var it = S.items.splice(from, 1)[0];
     S.items.splice(to, 0, it);
@@ -529,6 +543,74 @@
       });
     });
   }
+
+  // ---------- przeciąganie ----------
+  // Tylko za uchwyt (touch-action: none), więc przewijanie strony palcem działa jak zwykle.
+  // Pozycje liczymy względem strony, żeby autoprzewijanie przy krawędzi nie psuło obliczeń.
+  var D = null;
+  function startDrag(e, id) {
+    if (D || (e.pointerType === "mouse" && e.button !== 0)) return;
+    var handle = e.currentTarget, li = handle.closest("li.gift");
+    if (!li || !li.parentNode) return;
+    var lis = Array.prototype.slice.call(li.parentNode.children);
+    var from = lis.indexOf(li);
+    if (from < 0 || lis.length !== S.items.length) return;
+    e.preventDefault();
+    var sy = window.scrollY;
+    D = {
+      id: id, li: li, lis: lis, from: from, to: from, y: e.clientY, startY: e.clientY + sy, handle: handle,
+      rects: lis.map(function (l) { var r = l.getBoundingClientRect(); return { top: r.top + sy, h: r.height }; })
+    };
+    D.h = D.rects[from].h;
+    S.dragging = true;
+    try { handle.setPointerCapture(e.pointerId); } catch (err) {}
+    handle.addEventListener("pointermove", dragMove);
+    handle.addEventListener("pointerup", dragUp);
+    handle.addEventListener("pointercancel", dragCancel);
+    li.classList.add("dragging");
+    li.parentNode.classList.add("sorting");
+    document.documentElement.classList.add("is-dragging");
+    D.raf = requestAnimationFrame(autoScroll);
+  }
+  function dragMove(e) { if (D) { D.y = e.clientY; layoutDrag(); } }
+  function layoutDrag() {
+    var dy = D.y + window.scrollY - D.startY, r = D.rects, center = r[D.from].top + D.h / 2 + dy, to = D.from, j;
+    for (j = D.from + 1; j < r.length; j++) if (r[j].top + r[j].h / 2 < center) to = j;
+    for (j = D.from - 1; j >= 0; j--) if (r[j].top + r[j].h / 2 > center) to = j;
+    D.to = to;
+    D.li.style.transform = "translateY(" + dy + "px)";
+    D.lis.forEach(function (l, k) {
+      if (k === D.from) return;
+      var shift = D.from < to && k > D.from && k <= to ? -D.h : to < D.from && k >= to && k < D.from ? D.h : 0;
+      l.style.transform = shift ? "translateY(" + shift + "px)" : "";
+    });
+  }
+  function autoScroll() {
+    if (!D) return;
+    var edge = 80, v = 0, h = window.innerHeight;
+    if (D.y < edge) v = -(edge - D.y) / 3;
+    else if (D.y > h - edge) v = (D.y - (h - edge)) / 3;
+    if (v) { window.scrollBy(0, v); layoutDrag(); }
+    D.raf = requestAnimationFrame(autoScroll);
+  }
+  function endDrag(commit) {
+    if (!D) return;
+    var d = D; D = null;
+    cancelAnimationFrame(d.raf);
+    d.handle.removeEventListener("pointermove", dragMove);
+    d.handle.removeEventListener("pointerup", dragUp);
+    d.handle.removeEventListener("pointercancel", dragCancel);
+    d.lis.forEach(function (l) { l.style.transform = ""; });
+    d.li.classList.remove("dragging");
+    if (d.li.parentNode) d.li.parentNode.classList.remove("sorting");
+    document.documentElement.classList.remove("is-dragging");
+    S.dragging = false;
+    var pending = S.renderPending; S.renderPending = false;
+    if (commit && d.to !== d.from) moveTo(d.id, d.to);
+    else if (pending) render();
+  }
+  function dragUp() { endDrag(true); }
+  function dragCancel() { endDrag(false); }
 
   // ---------- akcje ----------
   function openForm(id) { S.openClaim = id; S.draft = S.myName; S.claimErr = null; S.formFresh = true; render(); }
@@ -600,8 +682,8 @@
 
   // Odświeżaj co jakiś czas i po powrocie do karty. Gdy formularz jest otwarty, czekamy,
   // żeby nie przebudowywać pola w trakcie pisania (render i tak zachowuje wpisany tekst).
-  setInterval(function () { if (!document.hidden && !S.openClaim && !S.confirmRemove && !S.edit) refresh(); }, POLL_MS);
-  document.addEventListener("visibilitychange", function () { if (!document.hidden && !S.openClaim && !S.confirmRemove && !S.edit) refresh(); });
+  setInterval(function () { if (!document.hidden && !S.openClaim && !S.confirmRemove && !S.edit && !S.dragging) refresh(); }, POLL_MS);
+  document.addEventListener("visibilitychange", function () { if (!document.hidden && !S.openClaim && !S.confirmRemove && !S.edit && !S.dragging) refresh(); });
 
   render();
   refresh();

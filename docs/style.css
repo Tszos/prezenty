@@ -199,6 +199,12 @@ textarea.input { resize: vertical; min-height: 72px; padding-block: 10px; }
 .owner:not(.confirm) { display: flex; flex-wrap: wrap; gap: 0 var(--space-4); }
 .owner .link-btn { padding-left: 0; padding-right: 0; }
 .link-btn:disabled { opacity: .4; text-decoration: none; cursor: default; }
+/* przeciąganie */
+.grip { display: inline-flex; align-items: center; gap: 4px; text-decoration: none; touch-action: none; cursor: grab; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+.grip svg { width: 18px; height: 18px; }
+.is-dragging, .is-dragging * { user-select: none; -webkit-user-select: none; cursor: grabbing; }
+.sorting > .gift { transition: transform .15s ease; }
+.sorting > .gift.dragging { transition: none; z-index: 2; background: var(--surface); outline: 2px solid var(--mark); outline-offset: -2px; box-shadow: var(--shadow-card); }
 .owner.edit-form { display: grid; gap: var(--space-3); margin-top: var(--space-2); padding: var(--space-4); border-radius: var(--radius-lg); background: var(--paper); }
 .edit-form.enter { animation: slide .28s ease-out; }
 .edit-form textarea.input { font-size: max(var(--fs-body), 16px); }
