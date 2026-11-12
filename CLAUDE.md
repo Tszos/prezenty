@@ -11,6 +11,9 @@ Gift list site: static `docs/` on GitHub Pages + one Google Sheet and Apps Scrip
 - PUBLIC repo (Pages needs it): admin keys and setup links live only in git-ignored
   `setup-links.local.md`. Never commit, print or paste them.
 - No accounts for visitors by design; reservations are tied to an anonymous localStorage token.
+- Design: Domowy. `docs/tokens.css`, `components.css`, `theme.js` and `icons.svg` are copies from
+  `~/projects/home-design`: never edit them here. Change them in home-design and run its
+  `./sync.sh present-list`, then `scripts/stamp.sh`.
 
 ## Long-term memory
 @~/personal-bootstrap/memory/projects/present-list.md
