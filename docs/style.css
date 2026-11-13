@@ -222,3 +222,16 @@ textarea.input { resize: vertical; min-height: 72px; padding-block: 10px; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
+/* grupa na kafelku (właściciel) */
+.group-field { display: inline-flex; align-items: center; gap: var(--space-2); min-height: 44px; font-size: var(--fs-small); color: var(--ink-muted); font-weight: 500; }
+.group-pick, .group-new {
+  min-height: 36px; max-width: 14rem; padding: 0 10px; border: 1px solid var(--line); border-radius: var(--radius-md);
+  background: var(--surface); color: var(--ink); font-family: var(--font-sans); font-size: max(var(--fs-small), 16px);
+}
+.group-pick { cursor: pointer; }
+.group-pick:hover:not(:disabled) { border-color: var(--ink-muted); }
+.group-pick:focus-visible, .group-new:focus-visible { outline: 2px solid var(--mark); outline-offset: 2px; }
+.group-field.new { flex-wrap: wrap; flex-basis: 100%; }
+.group-field.new .group-new { flex: 1 1 10rem; }
+.group-field .btn-small { min-height: 36px; padding-block: 0; }
+.group-field .err { flex-basis: 100%; }

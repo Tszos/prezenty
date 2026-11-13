@@ -3,6 +3,9 @@ window.GIFT_CONFIG = {
   // Opcjonalny nadtytuł nad nagłówkiem, np. „Urodziny 2027”. Pusty = tylko ikona prezentu.
   occasion: "",
 
+  // Gotowe grupy proponowane właścicielowi przy prezencie (obok grup, które już są na liście).
+  defaultGroups: ["Książki", "Zabawki", "LEGO", "Gadżety", "Biżuteria", "Ubrania"],
+
   // Jedna pozycja na osobę. Klucz to nazwa folderu w docs/ (np. docs/ania/index.html),
   // a kolejność tutaj to kolejność na stronie wyboru.
   people: {

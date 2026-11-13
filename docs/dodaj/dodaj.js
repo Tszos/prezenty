@@ -310,12 +310,15 @@
   function groupsOf(k) {
     if (!k) return [];
     if (!S.groups[k]) {
-      S.groups[k] = [];
+      S.groups[k] = (CFG.defaultGroups || []).slice();
       api(k).list().then(function (d) {
         var seen = {}, out = [];
         ((d && d.items) || []).forEach(function (x) {
           var g = String(x.group || "").trim(), low = g.toLowerCase();
           if (g && !seen[low]) { seen[low] = true; out.push(g); }
+        });
+        (CFG.defaultGroups || []).forEach(function (g) {
+          if (g && !seen[g.toLowerCase()]) { seen[g.toLowerCase()] = true; out.push(g); }
         });
         S.groups[k] = out;
         if (out.length && document.getElementById("f-groups")) render();

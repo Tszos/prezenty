@@ -275,6 +275,19 @@
   function groupNames() {
     return sections().filter(function (g) { return !g.flat && !g.rest; }).map(function (g) { return g.label; });
   }
+  // Gotowe grupy z config.js, których jeszcze nie ma na liście (wielkość liter bez znaczenia).
+  function suggestedGroups() {
+    var used = {};
+    groupNames().forEach(function (g) { used[g.toLowerCase()] = true; });
+    return (CFG.defaultGroups || []).filter(function (g) { return g && !used[g.toLowerCase()]; });
+  }
+  // Nazwa wpisana inaczej niż istniejąca grupa („lego” vs „LEGO”) dostaje jej pisownię.
+  function canonGroup(name) {
+    name = str(name).trim().slice(0, 40);
+    var all = groupNames().concat(CFG.defaultGroups || []), low = name.toLowerCase();
+    for (var i = 0; i < all.length; i++) if (all[i].toLowerCase() === low) return all[i];
+    return name;
+  }
 
   function renderGroups() {
     var box = document.getElementById("groups");
@@ -399,7 +412,7 @@
     if (S.edit && S.edit.id === it.id) return editForm(it);
     var busy = !!S.busy["rm:" + it.id];
     if (S.confirmRemove !== it.id) {
-      // Przeciąganie i „Na koniec” działają w obrębie grupy; do innej grupy przenosi pole Grupa w „Edytuj”.
+      // Przeciąganie i „Na koniec” działają w obrębie grupy; do innej grupy przenosi lista „Grupa”.
       var at = sectionOf(it.id), i = at ? at.j : 0, lastI = at ? at.secs[at.i].items.length - 1 : 0, flat = true;
       // Uchwyt: przeciąganie myszą albo palcem, a z klawiatury strzałki w górę i w dół.
       var grip = flat ? el("button", { class: "link-btn grip", type: "button", "data-focus": "drag:" + it.id,
@@ -411,6 +424,7 @@
         }
       }, [icon("", "M9 6h.01M15 6h.01M9 12h.01M15 12h.01M9 18h.01M15 18h.01"), "Przeciągnij"]) : null;
       return el("div", { class: "owner" }, [
+        groupPicker(it, title),
         grip,
         el("button", { class: "link-btn", type: "button", "data-focus": "ed:" + it.id, "aria-label": "Edytuj: " + title, text: "Edytuj",
           onclick: function () { openEdit(it); } }),
@@ -429,6 +443,88 @@
           onclick: function () { S.confirmRemove = null; render(); var b = document.querySelector('[data-focus="rm:' + it.id + '"]'); if (b) b.focus(); } })
       ])
     ]);
+  }
+
+  // Lista grup na kafelku: grupy z listy, gotowe propozycje, „Bez grupy” i „+ Nowa grupa…”.
+  var NEW_GROUP = "__new__";
+  function groupPicker(it, title) {
+    var cur = str(it.group).trim(), busy = !!S.busy["gr:" + it.id];
+    if (S.newGroup && S.newGroup.id === it.id) return newGroupForm(it, title);
+    var opt = function (v, text) { return el("option", { value: v, text: text, selected: v === cur }); };
+    var used = groupNames();
+    var sel = el("select", { class: "group-pick", id: "gp-" + it.id, "data-focus": "gp:" + it.id, disabled: busy,
+      "aria-label": "Grupa prezentu: " + title,
+      onchange: function () {
+        if (sel.value === NEW_GROUP) { S.newGroup = { id: it.id, name: "", err: "", fresh: true }; render(); return; }
+        setGroup(it.id, sel.value);
+      }
+    }, [
+      opt("", "Bez grupy"),
+      used.length ? el("optgroup", { label: "Na liście" }, used.map(function (g) { return opt(g, g); })) : null,
+      suggestedGroups().length ? el("optgroup", { label: "Propozycje" }, suggestedGroups().map(function (g) { return opt(g, g); })) : null,
+      el("option", { value: NEW_GROUP, text: "+ Nowa grupa…" })
+    ]);
+    return el("label", { class: "group-field" }, [el("span", { text: "Grupa" }), sel]);
+  }
+  function newGroupForm(it, title) {
+    var N = S.newGroup;
+    var cancel = function () {
+      S.newGroup = null; render();
+      var s = document.getElementById("gp-" + it.id); if (s) s.focus({ preventScroll: true });
+    };
+    var inp = el("input", { type: "text", class: "group-new", id: "gn-" + it.id, maxlength: "40", autocomplete: "off",
+      placeholder: "np. Kuchnia", "data-focus": "gn:" + it.id, "aria-label": "Nazwa nowej grupy dla: " + title,
+      oninput: function () { N.name = inp.value; },
+      onkeydown: function (e) { if (e.key === "Escape") { e.preventDefault(); cancel(); } }
+    });
+    inp.value = N.name;
+    if (N.fresh) { N.fresh = false; setTimeout(function () { var f = document.getElementById("gn-" + it.id); if (f) f.focus({ preventScroll: true }); }, 0); }
+    return el("form", { class: "group-field new", onsubmit: function (e) {
+      e.preventDefault();
+      var name = canonGroup(N.name);
+      if (!name) { N.err = "Wpisz nazwę grupy."; render(); return; }
+      S.newGroup = null; setGroup(it.id, name);
+      var s = document.getElementById("gp-" + it.id); if (s) s.focus({ preventScroll: true });
+    } }, [
+      inp,
+      el("button", { class: "d-btn btn-primary btn-small", type: "submit", text: "Dodaj" }),
+      el("button", { class: "d-btn d-btn--secondary btn-ghost btn-small", type: "button", text: "Anuluj", onclick: cancel }),
+      el("div", { class: "err", role: "alert", text: N.err })
+    ]);
+  }
+  // Prezent trafia na koniec wybranej grupy; nowa grupa staje przed „Pozostałe”. Kolejność grup się nie zmienia.
+  function setGroup(id, name) {
+    var at = sectionOf(id);
+    if (!at) return;
+    var it = at.secs[at.i].items[at.j], secs = at.secs;
+    name = canonGroup(name);
+    if (str(it.group).trim() === name) { render(); return; }
+    secs[at.i].items.splice(at.j, 1);
+    it.group = name;
+    var key = name ? "g:" + name.toLowerCase() : "", target = null, k;
+    for (k = 0; k < secs.length; k++) {
+      if (name ? secs[k].key === key : (secs[k].rest || secs[k].flat)) { target = secs[k]; break; }
+    }
+    if (!target) {
+      target = { key: key, label: name, items: [] };
+      var restAt = secs.length;
+      for (k = 0; k < secs.length; k++) if (secs[k].rest || secs[k].flat) restAt = k;
+      secs.splice(name ? restAt : secs.length, 0, target);
+    }
+    target.items.push(it);
+    // Przy dużej grupie otwieramy ją, żeby było widać, gdzie prezent trafił.
+    delete S.groupsOpen[target.key];
+    lsSet(pk("gift-groups"), JSON.stringify(S.groupsOpen));
+    var key2 = adminKey();
+    applyOrder(secs, function () {
+      return api.post({ action: "edit", key: key2, id: id, title: it.title, price: it.price, desc: it.desc, shop: it.shop, url: it.url, group: name })
+        .then(function (r) {
+          if (r && r.ok) return true;
+          S.error = r && r.error === "bad_key"
+            ? "Klucz tej listy nie pasuje. Wklej go ponownie w aplikacji „Dodaj prezent”."
+            : "Nie udało się zmienić grupy. Pokazuję aktualną listę.";
+        });
+    });
   }
 
   var EDIT_FIELDS = [
@@ -459,7 +555,7 @@
       });
       inp.value = E[f.k] || "";
       // Podpowiedzi istniejących grup, żeby „Lego” i „LEGO” nie robiły dwóch sekcji.
-      var dl = f.list ? el("datalist", { id: "groups-" + it.id }, groupNames().map(function (g) { return el("option", { value: g }); })) : null;
+      var dl = f.list ? el("datalist", { id: "groups-" + it.id }, groupNames().concat(suggestedGroups()).map(function (g) { return el("option", { value: g }); })) : null;
       return el("div", { class: "d-field" }, [el("label", { for: id, text: f.label }), inp, dl]);
     });
     var fresh = E.fresh; E.fresh = false;
@@ -516,19 +612,23 @@
   // nie miesza kolejności. Dopóki coś czeka w kolejce, odświeżanie nie nadpisuje lokalnej kolejności.
   var moveChain = Promise.resolve();
   S.moving = 0;
-  function applyOrder(secs) {
+  // `before` (opcjonalnie) to zapis wykonany przed kolejnością; zwraca false, gdy się nie udał.
+  function applyOrder(secs, before) {
     var order = [];
     secs.forEach(function (g) { order = order.concat(g.items); });
     S.items = order;
     var ids = order.map(function (x) { return x.id; }), key = adminKey();
     S.moving++; S.error = ""; render();
     moveChain = moveChain.then(function () {
-      return api.post({ action: "reorder", ids: ids, key: key }).then(function (r) {
+      return (before ? before() : Promise.resolve(true)).then(function (ok) {
+        if (!ok) return { ok: true };
+        return api.post({ action: "reorder", ids: ids, key: key });
+      }).then(function (r) {
         if (!r || !r.ok) S.error = r && r.error === "bad_key"
           ? "Klucz tej listy nie pasuje. Wklej go ponownie w aplikacji „Dodaj prezent”."
           : "Nie udało się zapisać nowej kolejności. Pokazuję aktualną listę.";
       }).catch(function () {
-        S.error = "Nie udało się zapisać nowej kolejności. Sprawdź połączenie.";
+        S.error = "Nie udało się zapisać zmian. Sprawdź połączenie.";
       }).then(function () {
         S.moving--;
         if (!S.moving) { var err = S.error; return refresh().then(function () { if (err) { S.error = err; render(); } }); }
@@ -697,8 +797,8 @@
 
   // Odświeżaj co jakiś czas i po powrocie do karty. Gdy formularz jest otwarty, czekamy,
   // żeby nie przebudowywać pola w trakcie pisania (render i tak zachowuje wpisany tekst).
-  setInterval(function () { if (!document.hidden && !S.openClaim && !S.confirmRemove && !S.edit && !S.dragging) refresh(); }, POLL_MS);
-  document.addEventListener("visibilitychange", function () { if (!document.hidden && !S.openClaim && !S.confirmRemove && !S.edit && !S.dragging) refresh(); });
+  setInterval(function () { if (!document.hidden && !S.openClaim && !S.confirmRemove && !S.edit && !S.newGroup && !S.dragging) refresh(); }, POLL_MS);
+  document.addEventListener("visibilitychange", function () { if (!document.hidden && !S.openClaim && !S.confirmRemove && !S.edit && !S.newGroup && !S.dragging) refresh(); });
 
   render();
   refresh();

@@ -80,7 +80,8 @@ Aby usunąć prezent, usuń jego wiersz. Aby ręcznie zwolnić rezerwację, usu�
 prezenty bez grupy trafiają do „Pozostałe” na końcu. Bez żadnej grupy lista jest jedna.
 
 Właściciel listy (przeglądarka z kluczem z aplikacji „Dodaj prezent”) może też na samej stronie listy
-edytować prezenty (także ich grupę), zmieniać kolejność przeciąganiem w obrębie grupy, przestawiać
+edytować prezenty, zmieniać ich grupę listą „Grupa” na kafelku (z gotowymi propozycjami z `defaultGroups`
+w `config.js` i opcją „+ Nowa grupa…”), zmieniać kolejność przeciąganiem w obrębie grupy, przestawiać
 całe grupy strzałkami i usuwać pozycje. U niego rezerwacje są
 domyślnie ukryte; „Pokaż rezerwacje” działa do zamknięcia karty.
 
