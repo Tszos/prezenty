@@ -308,25 +308,28 @@
     var countText = S.surprise ? gifts(total)
       : free === 0 ? "wszystkie zajęte"
       : free + " z " + total + " " + plural(free, "wolny", "wolne", "wolnych");
-    // Właściciel przestawia całe grupy strzałkami; „Pozostałe” zawsze na końcu.
-    var arrows = null;
-    if (adminKey() && !g.rest) {
-      var lastMovable = secs[secs.length - 1].rest ? secs.length - 2 : secs.length - 1;
-      var arrow = function (dir, text, label, off) {
-        return el("button", { class: "sec-move", type: "button", "data-focus": "sec" + dir + ":" + g.key, disabled: off,
-          "aria-label": label + ": " + g.label, text: text,
-          onclick: function (e) { e.preventDefault(); e.stopPropagation(); moveSection(g.key, dir); } });
-      };
-      arrows = el("span", { class: "sec-arrows" }, [
-        arrow("up", "↑", "Grupa wyżej", i === 0),
-        arrow("down", "↓", "Grupa niżej", i >= lastMovable)
-      ]);
+    // Właściciel przeciąga całe grupy za uchwyt w nagłówku (albo strzałkami z klawiatury);
+    // „Pozostałe” zawsze na końcu, więc nie ma uchwytu.
+    var grip = null;
+    var movable = secs.filter(function (s) { return !s.rest; }).length;
+    if (adminKey() && !g.rest && movable > 1) {
+      grip = el("button", { class: "link-btn grip sec-grip", type: "button", "data-focus": "secdrag:" + g.key,
+        title: "Przeciągnij, żeby przesunąć grupę",
+        "aria-label": "Przesuń grupę: " + g.label + ". Strzałki w górę i w dół zmieniają miejsce.",
+        onpointerdown: function (e) { startGroupDrag(e, g.key); },
+        // Klik w przycisk w <summary> zwijałby grupę.
+        onclick: function (e) { e.preventDefault(); e.stopPropagation(); },
+        onkeydown: function (e) {
+          var dir = e.key === "ArrowUp" ? "up" : e.key === "ArrowDown" ? "down" : "";
+          if (dir) { e.preventDefault(); moveSection(g.key, dir); }
+        }
+      }, [icon("", "M9 6h.01M15 6h.01M9 12h.01M15 12h.01M9 18h.01M15 18h.01")]);
     }
     var d = el("details", { class: "group", "data-group": g.key, open: isOpen(g.key) }, [
       el("summary", { "data-focus": "group:" + g.key }, [
+        grip,
         el("span", { class: "range", text: g.label }),
         el("span", { class: "count" + (!S.surprise && free === 0 ? " done" : ""), text: countText }),
-        arrows,
         icon("chev", "M6 9l6 6 6-6")
       ]),
       el("ul", { class: "gifts", "aria-label": g.label }, items.map(card))
@@ -650,12 +653,19 @@
     list.splice(to, 0, list.splice(at.j, 1)[0]);
     applyOrder(at.secs);
   }
+  function sectionIndex(secs, key) {
+    for (var k = 0; k < secs.length; k++) if (secs[k].key === key) return k;
+    return -1;
+  }
   function moveSection(key, dir) {
-    var secs = sections(), i = -1;
-    secs.forEach(function (g, k) { if (g.key === key) i = k; });
-    var j = dir === "up" ? i - 1 : i + 1;
-    if (i < 0 || j < 0 || j >= secs.length || secs[i].rest || secs[j].rest) return;
-    secs.splice(j, 0, secs.splice(i, 1)[0]);
+    var i = sectionIndex(sections(), key);
+    if (i >= 0) moveSectionTo(key, dir === "up" ? i - 1 : i + 1);
+  }
+  // `to` = nowe miejsce grupy; „Pozostałe” zostaje na końcu.
+  function moveSectionTo(key, to) {
+    var secs = sections(), i = sectionIndex(secs, key);
+    if (i < 0 || to < 0 || to >= secs.length || to === i || secs[i].rest || secs[to].rest) return;
+    secs.splice(to, 0, secs.splice(i, 1)[0]);
     applyOrder(secs);
   }
 
@@ -671,33 +681,57 @@
     var from = lis.indexOf(li);
     var at = sectionOf(id);
     if (from < 0 || !at || lis.length !== at.secs[at.i].items.length) return;
+    beginDrag(e, { li: li, lis: lis, from: from, box: li.parentNode, cls: "sorting", off: 0,
+      commit: function (to) { moveTo(id, to); } });
+  }
+  // Grupy: na czas przeciągania wszystkie zwijają się do nagłówków, a strona przewija się tak,
+  // żeby chwycony nagłówek został pod palcem.
+  function startGroupDrag(e, key) {
+    if (D || (e.pointerType === "mouse" && e.button !== 0)) return;
+    var handle = e.currentTarget, box = document.getElementById("groups"), g = handle.closest("details.group");
+    if (!g || !box) return;
+    var els = Array.prototype.filter.call(box.children, function (x) { return x.getAttribute("data-group") !== "rest"; });
+    var from = els.indexOf(g);
+    var movable = sections().filter(function (s) { return !s.rest; }).length;
+    if (from < 0 || els.length !== movable) return;
+    var before = g.getBoundingClientRect().top;
+    box.classList.add("sorting-groups");
+    window.scrollBy(0, g.getBoundingClientRect().top - before);
+    beginDrag(e, { li: g, lis: els, from: from, box: box, cls: "sorting-groups", key: key,
+      off: before - g.getBoundingClientRect().top,
+      commit: function (to) { moveSectionTo(key, to); } });
+  }
+  function beginDrag(e, o) {
     e.preventDefault();
     var sy = window.scrollY;
-    D = {
-      id: id, li: li, lis: lis, from: from, to: from, y: e.clientY, startY: e.clientY + sy, handle: handle,
-      rects: lis.map(function (l) { var r = l.getBoundingClientRect(); return { top: r.top + sy, h: r.height }; })
-    };
-    D.h = D.rects[from].h;
+    D = o;
+    D.to = o.from; D.y = e.clientY; D.startY = e.clientY + sy; D.handle = e.currentTarget;
+    D.rects = o.lis.map(function (l) { var r = l.getBoundingClientRect(); return { top: r.top + sy, h: r.height }; });
+    D.h = D.rects[o.from].h;
+    // Odstęp między elementami (grupy mają przerwę, prezenty nie).
+    D.gap = D.rects.length > 1 ? Math.max(0, D.rects[1].top - D.rects[0].top - D.rects[0].h) : 0;
     S.dragging = true;
-    try { handle.setPointerCapture(e.pointerId); } catch (err) {}
-    handle.addEventListener("pointermove", dragMove);
-    handle.addEventListener("pointerup", dragUp);
-    handle.addEventListener("pointercancel", dragCancel);
-    li.classList.add("dragging");
-    li.parentNode.classList.add("sorting");
+    try { D.handle.setPointerCapture(e.pointerId); } catch (err) {}
+    D.handle.addEventListener("pointermove", dragMove);
+    D.handle.addEventListener("pointerup", dragUp);
+    D.handle.addEventListener("pointercancel", dragCancel);
+    D.li.classList.add("dragging");
+    D.box.classList.add(D.cls);
     document.documentElement.classList.add("is-dragging");
+    if (D.off) layoutDrag();
     D.raf = requestAnimationFrame(autoScroll);
   }
   function dragMove(e) { if (D) { D.y = e.clientY; layoutDrag(); } }
   function layoutDrag() {
-    var dy = D.y + window.scrollY - D.startY, r = D.rects, center = r[D.from].top + D.h / 2 + dy, to = D.from, j;
+    var dy = D.y + window.scrollY - D.startY + D.off, r = D.rects, center = r[D.from].top + D.h / 2 + dy, to = D.from, j;
     for (j = D.from + 1; j < r.length; j++) if (r[j].top + r[j].h / 2 < center) to = j;
     for (j = D.from - 1; j >= 0; j--) if (r[j].top + r[j].h / 2 > center) to = j;
     D.to = to;
     D.li.style.transform = "translateY(" + dy + "px)";
+    var step = D.h + D.gap;
     D.lis.forEach(function (l, k) {
       if (k === D.from) return;
-      var shift = D.from < to && k > D.from && k <= to ? -D.h : to < D.from && k >= to && k < D.from ? D.h : 0;
+      var shift = D.from < to && k > D.from && k <= to ? -step : to < D.from && k >= to && k < D.from ? step : 0;
       l.style.transform = shift ? "translateY(" + shift + "px)" : "";
     });
   }
@@ -716,14 +750,20 @@
     d.handle.removeEventListener("pointermove", dragMove);
     d.handle.removeEventListener("pointerup", dragUp);
     d.handle.removeEventListener("pointercancel", dragCancel);
+    // Gdzie nagłówek grupy był w chwili upuszczenia, żeby po rozwinięciu grup został w tym miejscu.
+    var dropTop = d.key ? d.li.getBoundingClientRect().top : 0;
     d.lis.forEach(function (l) { l.style.transform = ""; });
     d.li.classList.remove("dragging");
-    if (d.li.parentNode) d.li.parentNode.classList.remove("sorting");
+    d.box.classList.remove(d.cls);
     document.documentElement.classList.remove("is-dragging");
     S.dragging = false;
     var pending = S.renderPending; S.renderPending = false;
-    if (commit && d.to !== d.from) moveTo(d.id, d.to);
+    if (commit && d.to !== d.from) d.commit(d.to);
     else if (pending) render();
+    if (d.key) {
+      var g = document.querySelector('#groups [data-group="' + d.key + '"]');
+      if (g) window.scrollBy(0, g.getBoundingClientRect().top - dropTop);
+    }
   }
   function dragUp() { endDrag(true); }
   function dragCancel() { endDrag(false); }

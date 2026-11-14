@@ -82,7 +82,7 @@ prezenty bez grupy trafiają do „Pozostałe” na końcu. Bez żadnej grupy li
 Właściciel listy (przeglądarka z kluczem z aplikacji „Dodaj prezent”) może też na samej stronie listy
 edytować prezenty, zmieniać ich grupę listą „Grupa” na kafelku (z gotowymi propozycjami z `defaultGroups`
 w `config.js` i opcją „+ Nowa grupa…”), zmieniać kolejność przeciąganiem w obrębie grupy, przestawiać
-całe grupy strzałkami i usuwać pozycje. U niego rezerwacje są
+całe grupy przeciąganiem za uchwyt w nagłówku (albo strzałkami z klawiatury) i usuwać pozycje. U niego rezerwacje są
 domyślnie ukryte; „Pokaż rezerwacje” działa do zamknięcia karty.
 
 > Zmiany w `Code.gs` wymagają nowej wersji wdrożenia (**Wdróż → Zarządzaj wdrożeniami → Edytuj → Nowa wersja**).
