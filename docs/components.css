@@ -31,7 +31,7 @@
   outline: 2px solid var(--mark); outline-offset: 2px;
 }
 
-/* ---------- header: notebook by day, night sky with aurora by night ---------- */
+/* ---------- header: notebook by day, soft grey light and stars by night ---------- */
 .d-header {
   position: relative; display: grid; gap: var(--space-3);
   padding: 26px var(--space-5) 14px;
@@ -43,7 +43,7 @@
 .d-header > * { position: relative; }
 /* No label above the title: the title opens the screen, the theme switch sits beside it.
    An optional one-line subtitle goes under the title, in full ink (faded ink drops below
-   4.5:1 over the brightest aurora). */
+   4.5:1 over the brightest night glow). */
 .d-header__bar { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); }
 .d-subtitle { margin: calc(-1 * var(--space-2)) 0 0; font-size: var(--fs-small); line-height: var(--lh-small); color: var(--ink); }
 .d-stars { position: absolute !important; inset: 0; width: 100%; height: 100%; pointer-events: none; fill: var(--star); opacity: var(--night); }
@@ -206,4 +206,75 @@
 }
 .d-toast__action:hover { background: var(--surface-sunk); }
 
-@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+/* ---------- motion ----------
+   A firm press, ink that settles, a row that tucks itself away. Everything slows down and
+   stops: one curve (--ease-settle), nothing overshoots or bounces, nothing over 300 ms except
+   the linger after a tick. Rows folding away and numbers rolling need motion.js. */
+
+/* Press: sinks under the finger, comes back slowly. */
+.d-btn, .d-chip, .d-theme-toggle, .d-toast__action {
+  transition: transform var(--motion-calm) var(--ease-settle), filter var(--motion-quick),
+              background-color var(--motion-quick), border-color var(--motion-quick), color var(--motion-quick);
+}
+:is(.d-btn, .d-chip, .d-theme-toggle, .d-toast__action):not(:disabled):active {
+  transform: scale(.96) translateY(1px); transition-duration: var(--motion-press);
+}
+.d-btn:not(:disabled):active { filter: brightness(.93); }
+
+/* Choose: the selected chip fills with ink spreading from where the finger landed
+   (motion.js sets --x/--y; without it the ink starts from the centre). The chip left behind fades. */
+.d-chip { isolation: isolate; }
+.d-chip::before {
+  content: ""; position: absolute; inset: -1px; z-index: -1; border-radius: inherit; background: var(--accent-strong);
+  clip-path: circle(0 at var(--x, 50%) var(--y, 50%)); opacity: 0;
+  transition: opacity var(--motion-quick) ease-in, clip-path 0s var(--motion-quick);
+}
+.d-chip[aria-pressed="true"] { background: var(--surface); }
+.d-chip[aria-pressed="true"]::before {
+  clip-path: circle(150% at var(--x, 50%) var(--y, 50%)); opacity: 1;
+  transition: clip-path var(--motion-calm) var(--ease-settle), opacity 0s;
+}
+
+/* Tick (stamp): the box fills, the mark grows in, and with .d-stamp (motion.js adds it on
+   change) the box presses in like a rubber stamp. The name fades as it is crossed out. */
+.d-check { transition: background-color var(--motion-quick); }
+.d-check::after { transform: rotate(45deg) scale(.5); transition: opacity var(--motion-press), transform var(--motion-press); }
+.d-check:checked::after { transform: rotate(45deg); transition: opacity var(--motion-quick), transform var(--motion-calm) var(--ease-settle); }
+.d-stamp { animation: d-stamp var(--motion-quick) var(--ease-settle); }
+@keyframes d-stamp { 35% { transform: scale(.78); } }
+.d-item__name { transition: color var(--motion-calm) var(--ease-settle); }
+.d-item .d-icon { transition: opacity var(--motion-calm) var(--ease-settle); }
+
+/* Count: a number rolls one digit, up when it grows, down when it shrinks (motion.js roll()). */
+.d-roll { display: inline-grid; overflow: hidden; vertical-align: bottom; }
+.d-roll > span { grid-area: 1 / 1; }
+.d-roll .in-up { animation: d-in-up var(--motion-calm) var(--ease-settle); }
+.d-roll .out-up { animation: d-out-up var(--motion-calm) var(--ease-settle) forwards; }
+.d-roll .in-down { animation: d-in-down var(--motion-calm) var(--ease-settle); }
+.d-roll .out-down { animation: d-out-down var(--motion-calm) var(--ease-settle) forwards; }
+@keyframes d-in-up { from { transform: translateY(80%); opacity: 0; } }
+@keyframes d-out-up { to { transform: translateY(-80%); opacity: 0; } }
+@keyframes d-in-down { from { transform: translateY(-80%); opacity: 0; } }
+@keyframes d-out-down { to { transform: translateY(80%); opacity: 0; } }
+
+/* Toast: rises in, leaves faster (.d-toast--out). With .d-toast--timed and --life set to its
+   lifetime, a hairline along the bottom shows how long Cofnij stays. */
+.d-toast { position: relative; overflow: hidden; animation: d-toast-in var(--motion-calm) var(--ease-settle); }
+.d-toast--out { animation: d-toast-out var(--motion-quick) ease-in forwards; }
+.d-toast--timed::after {
+  content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: var(--mark); opacity: .4;
+  transform-origin: left; animation: d-life var(--life, 4s) linear forwards;
+}
+@keyframes d-toast-in { from { opacity: 0; transform: translateY(12px) scale(.98); } }
+@keyframes d-toast-out { to { opacity: 0; transform: translateY(6px); } }
+@keyframes d-life { to { transform: scaleX(0); } }
+
+/* Day and night: theme.js crossfades the page; the moon turns into the sun. */
+.d-theme-toggle svg { animation: d-icon-in var(--motion-calm) var(--ease-settle); }
+@keyframes d-icon-in { from { opacity: 0; transform: rotate(-60deg) scale(.6); } }
+::view-transition-old(root), ::view-transition-new(root) { animation-duration: var(--motion-calm); }
+
+/* Reduced motion: every change is instant; the end state looks the same. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition: none !important; animation: none !important; }
+}

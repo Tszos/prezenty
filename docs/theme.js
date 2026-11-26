@@ -25,9 +25,15 @@
   window.domowyTheme = {
     toggle: function () {
       var next = current() === "dark" ? "light" : "dark";
-      root.dataset.theme = next;
-      try { localStorage.setItem(KEY, next); } catch (e) {}
-      label();
+      function apply() {
+        root.dataset.theme = next;
+        try { localStorage.setItem(KEY, next); } catch (e) {}
+        label();
+      }
+      // Crossfade the page instead of flashing, where the browser can.
+      var still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      if (document.startViewTransition && !still) document.startViewTransition(apply);
+      else apply();
     },
     // Back to following the phone.
     reset: function () {
