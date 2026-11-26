@@ -415,26 +415,25 @@
     if (S.edit && S.edit.id === it.id) return editForm(it);
     var busy = !!S.busy["rm:" + it.id];
     if (S.confirmRemove !== it.id) {
-      // Przeciąganie i „Na koniec” działają w obrębie grupy; do innej grupy przenosi lista „Grupa”.
-      var at = sectionOf(it.id), i = at ? at.j : 0, lastI = at ? at.secs[at.i].items.length - 1 : 0, flat = true;
-      // Uchwyt: przeciąganie myszą albo palcem, a z klawiatury strzałki w górę i w dół.
-      var grip = flat ? el("button", { class: "link-btn grip", type: "button", "data-focus": "drag:" + it.id,
-        "aria-label": "Przesuń: " + title + ". Strzałki w górę i w dół zmieniają miejsce.",
+      // Przeciąganie działa w obrębie grupy; do innej grupy przenosi lista grup.
+      // Uchwyt (sama ikona, jak przy grupach): mysz albo palec, a z klawiatury strzałki w górę i w dół.
+      var grip = el("button", { class: "link-btn grip sec-grip", type: "button", "data-focus": "drag:" + it.id,
+        "aria-label": "Przesuń: " + title + ". Strzałki w górę i w dół zmieniają miejsce.", title: "Przeciągnij",
         onpointerdown: function (e) { startDrag(e, it.id); },
         onkeydown: function (e) {
           var dir = e.key === "ArrowUp" ? "up" : e.key === "ArrowDown" ? "down" : "";
           if (dir) { e.preventDefault(); moveGift(it.id, dir); }
         }
-      }, [icon("", "M9 6h.01M15 6h.01M9 12h.01M15 12h.01M9 18h.01M15 18h.01"), "Przeciągnij"]) : null;
+      }, [icon("", "M9 6h.01M15 6h.01M9 12h.01M15 12h.01M9 18h.01M15 18h.01")]);
       return el("div", { class: "owner" }, [
-        groupPicker(it, title),
         grip,
-        el("button", { class: "link-btn", type: "button", "data-focus": "ed:" + it.id, "aria-label": "Edytuj: " + title, text: "Edytuj",
-          onclick: function () { openEdit(it); } }),
-        flat ? el("button", { class: "link-btn", type: "button", "data-focus": "end:" + it.id, disabled: i >= lastI,
-          "aria-label": "Przesuń na koniec " + (at && !at.secs[at.i].flat ? "grupy" : "listy") + ": " + title, text: "Na koniec", onclick: function () { moveGift(it.id, "end"); } }) : null,
-        el("button", { class: "link-btn", type: "button", "data-focus": "rm:" + it.id, "aria-label": "Usuń z listy: " + title, text: "Usuń z listy",
-          onclick: function () { S.confirmRemove = it.id; S.focusConfirm = true; render(); } })
+        groupPicker(it, title),
+        el("div", { class: "owner-links" }, [
+          el("button", { class: "link-btn", type: "button", "data-focus": "ed:" + it.id, "aria-label": "Edytuj: " + title, text: "Edytuj",
+            onclick: function () { openEdit(it); } }),
+          el("button", { class: "link-btn", type: "button", "data-focus": "rm:" + it.id, "aria-label": "Usuń z listy: " + title, text: "Usuń",
+            onclick: function () { S.confirmRemove = it.id; S.focusConfirm = true; render(); } })
+        ])
       ]);
     }
     return el("div", { class: "owner confirm", role: "alert" }, [
@@ -467,7 +466,7 @@
       suggestedGroups().length ? el("optgroup", { label: "Propozycje" }, suggestedGroups().map(function (g) { return opt(g, g); })) : null,
       el("option", { value: NEW_GROUP, text: "+ Nowa grupa…" })
     ]);
-    return el("label", { class: "group-field" }, [el("span", { text: "Grupa" }), sel]);
+    return el("label", { class: "group-field" }, [sel]);
   }
   function newGroupForm(it, title) {
     var N = S.newGroup;
@@ -641,8 +640,7 @@
   function moveGift(id, dir) {
     var at = sectionOf(id);
     if (!at) return;
-    var n = at.secs[at.i].items.length;
-    moveTo(id, dir === "up" ? at.j - 1 : dir === "down" ? at.j + 1 : n - 1);
+    moveTo(id, dir === "up" ? at.j - 1 : at.j + 1);
   }
   // `to` = nowe miejsce w obrębie grupy prezentu.
   function moveTo(id, to) {
