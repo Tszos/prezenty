@@ -13,19 +13,19 @@ window.GIFT_CONFIG = {
       // Imię w mianowniku ("Jestem Tomek") i dopełniaczu ("Lista prezentów Tomka").
       name: "Tomek",
       nameGen: "Tomka",
-      // Adres wdrożonego Google Apps Script tej osoby (kończy się na /exec).
+      // Adres listy w API (Cloudflare Worker, worker/): https://prezenty-api.tszos.workers.dev/<folder>.
       // Pusty = tryb demo (dane tylko w Twojej przeglądarce).
-      apiUrl: "https://script.google.com/macros/s/AKfycbyA6W5XQH1PJ1OJVd0bneBrsmfsp0QNA2uFwysnDNbDAyN28mGaSC7io81_drorKnJhGw/exec"
+      apiUrl: "https://prezenty-api.tszos.workers.dev/tomek"
     },
     ania: {
       name: "Ania",
       nameGen: "Ani",
-      apiUrl: "https://script.google.com/macros/s/AKfycby9f2SlGQaxQ5f0-iFEslZT216jcQCVcXx6qn8DtQixA5fofcBFz8Q4gdboMroAzDxD/exec"
+      apiUrl: "https://prezenty-api.tszos.workers.dev/ania"
     },
     mikolaj: {
       name: "Mikołaj",
       nameGen: "Mikołaja",
-      apiUrl: "https://script.google.com/macros/s/AKfycby_oR-PiLL9PeSCLiTdUntDjhGsXZExgVJBPp5P5UEl3N79LepIrNadrjpjtep1O3CQ/exec"
+      apiUrl: "https://prezenty-api.tszos.workers.dev/mikolaj"
     }
   }
 };

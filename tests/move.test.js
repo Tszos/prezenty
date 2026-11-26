@@ -1,7 +1,7 @@
-// Checks for planMove() in apps-script/Code.gs (owner reordering: which sheet row goes where).
+// Checks for planMove() in worker/src/lib.js (owner reordering: which sheet row goes where).
 const test = require("node:test");
 const assert = require("assert");
-const { planMove } = require("../apps-script/Code.gs");
+const { planMove } = require("../worker/src/lib.js");
 
 const ids = ["a", "b", "c", "d"]; // rows 2..5
 

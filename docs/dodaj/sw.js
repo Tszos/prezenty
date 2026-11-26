@@ -15,7 +15,7 @@ self.addEventListener("activate", function (e) {
 
 self.addEventListener("fetch", function (e) {
   var url = new URL(e.request.url);
-  // Tylko pliki tej strony; zapytania do Google Apps Script idą prosto do sieci.
+  // Tylko pliki tej strony; zapytania do API listy idą prosto do sieci.
   if (e.request.method !== "GET" || url.origin !== self.location.origin) return;
   e.respondWith(
     fetch(e.request).then(function (res) {

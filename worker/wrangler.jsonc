@@ -1,0 +1,11 @@
+// Gift list API: Cloudflare Worker + D1 (free tier). Deploy from this folder:
+//   wrangler d1 migrations apply prezenty --remote && wrangler deploy
+// New list: node ../scripts/new-list.mjs <person>
+{
+  "name": "prezenty-api",
+  "main": "src/index.js",
+  "compatibility_date": "2026-11-01",
+  "d1_databases": [{ "binding": "DB", "database_name": "prezenty", "database_id": "3517781a-2b0d-4bb6-a4b4-2d11e2f6be2f", "migrations_dir": "migrations" }],
+  "preview_urls": false,
+  "observability": { "enabled": true }
+}

@@ -1,7 +1,7 @@
-// Checks for owner groups (Grupa column), reordering and editing in apps-script/Code.gs.
+// Checks for owner groups (Grupa column), reordering and editing in worker/src/lib.js.
 const test = require("node:test");
 const assert = require("assert");
-const { reorderRanks, cleanEdit } = require("../apps-script/Code.gs");
+const { reorderRanks, cleanEdit } = require("../worker/src/lib.js");
 
 test("reorder: rows follow the new order", () => {
   assert.deepStrictEqual(reorderRanks(["a", "b", "c"], ["c", "a", "b"]), [1, 2, 0]);

@@ -1,6 +1,6 @@
-// Checks for extractMeta() in apps-script/Code.gs (shop page -> name, price, shop).
+// Checks for extractMeta() in worker/src/lib.js (shop page -> name, price, shop).
 const assert = require("assert");
-const { extractMeta } = require("../apps-script/Code.gs");
+const { extractMeta } = require("../worker/src/lib.js");
 let n = 0;
 function check(label, html, want) {
   const got = extractMeta(html);
@@ -23,7 +23,7 @@ check("numeric entity", '<meta name="twitter:title" content="Caf&#233; &#x2013; 
 console.log(n + " passed");
 
 // ---- name cleanup, names from links, shop from address ----
-const { cleanTitle, slugTitle, shopFromUrl } = require("../apps-script/Code.gs");
+const { cleanTitle, slugTitle, shopFromUrl, junkTitle } = require("../worker/src/lib.js");
 function eq(label, got, want) { assert.strictEqual(got, want, label + ": " + JSON.stringify(got)); console.log("PASS " + label); n2++; }
 let n2 = 0;
 eq("allegro suffix + offer number",
@@ -42,4 +42,7 @@ eq("shop allegro", shopFromUrl("https://allegro.pl/oferta/x-1"), "Allegro");
 eq("shop from share.google is empty", shopFromUrl("https://share.google/abc"), "");
 eq("shop amazon.co.uk", shopFromUrl("https://www.amazon.co.uk/dp/1"), "Amazon");
 eq("shop unknown", shopFromUrl("https://www.sklepzabawki.pl/x"), "Sklepzabawki");
+eq("junk: ceneo captcha page", junkTitle("Ceneo - porównanie cen, sklepy internetowe - opinie"), true);
+eq("junk: bare amazon", junkTitle("Amazon.pl"), true);
+eq("not junk: product", junkTitle("LILLABO 45-częściowy zestaw pociąg i tory"), false);
 console.log(n2 + " passed (names)");

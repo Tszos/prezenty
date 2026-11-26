@@ -1,3 +1,6 @@
 
 # Local secrets (keys for adding gifts), never commit
 *.local.md
+
+# Wrangler local state
+worker/.wrangler/

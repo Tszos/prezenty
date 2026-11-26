@@ -775,15 +775,21 @@
     var b = document.querySelector('[data-focus="claim:' + id + '"]'); if (b) b.focus();
   }
 
+  function applyList(d) {
+    if (!S.moving) S.items = (d.items || []).map(function (x) {
+      return { id: str(x.id), title: str(x.title), desc: str(x.desc), price: str(x.price), shop: str(x.shop), url: str(x.url), group: typeof x.group === "string" ? x.group.trim() : "" };
+    });
+    S.claims = d.claims && typeof d.claims === "object" ? d.claims : {};
+    S.loaded = true;
+  }
+
   function refresh() {
     if (!PEOPLE[PERSON]) { S.error = "Nie ma takiej listy. Wybierz osobę na stronie głównej."; render(); return Promise.resolve(); }
     return api.list().then(function (d) {
       if (!d || !d.ok) throw new Error((d && d.error) || "bad");
-      if (!S.moving) S.items = (d.items || []).map(function (x) {
-        return { id: str(x.id), title: str(x.title), desc: str(x.desc), price: str(x.price), shop: str(x.shop), url: str(x.url), group: typeof x.group === "string" ? x.group.trim() : "" };
-      });
-      S.claims = d.claims || {};
-      S.loaded = true; S.error = "";
+      applyList(d);
+      S.error = "";
+      if (!DEMO) lsSet(pk("gift-cache"), JSON.stringify({ items: d.items || [], claims: d.claims || {} }));
     }).catch(function () {
       S.error = "Nie udało się wczytać listy. Sprawdź połączenie i odśwież stronę.";
     }).then(render);
@@ -839,6 +845,10 @@
   // żeby nie przebudowywać pola w trakcie pisania (render i tak zachowuje wpisany tekst).
   setInterval(function () { if (!document.hidden && !S.openClaim && !S.confirmRemove && !S.edit && !S.newGroup && !S.dragging) refresh(); }, POLL_MS);
   document.addEventListener("visibilitychange", function () { if (!document.hidden && !S.openClaim && !S.confirmRemove && !S.edit && !S.newGroup && !S.dragging) refresh(); });
+
+  // Last list seen in this browser: shown at once, then replaced by fresh data from the server.
+  var cached = DEMO ? null : lsJson(pk("gift-cache"));
+  if (cached && Array.isArray(cached.items)) applyList(cached);
 
   render();
   refresh();
