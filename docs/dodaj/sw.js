@@ -27,3 +27,13 @@ self.addEventListener("fetch", function (e) {
     })
   );
 });
+
+// Aplikacja pyta po otwarciu i przy powrocie na ekran: czy na serwerze jest nowsza wersja niż ta,
+// która działa? Porównujemy znacznik ?v= przy dodaj.js (scripts/stamp.sh zmienia go przy każdym wydaniu).
+self.addEventListener("message", function (e) {
+  var build = e.data && e.data.type === "check-update" && e.data.build;
+  if (!build) return;
+  e.waitUntil(fetch("./", { cache: "no-store" }).then(function (r) { return r.ok ? r.text() : ""; }).then(function (html) {
+    if (html.indexOf("dodaj.js?v=") > 0 && html.indexOf(build) < 0 && e.source) e.source.postMessage({ type: "update-ready" });
+  }).catch(function () {}));
+});

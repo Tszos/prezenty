@@ -463,18 +463,49 @@
     }).then(function () { S.busy = false; render(); });
   }
 
-  // ---------- instalacja ----------
+  // ---------- instalacja i aktualizacje ----------
+  // Instalacja: Chrome wysyła beforeinstallprompt, gdy stronę można zainstalować; pokazujemy własny
+  // przycisk, więc zwykły link do tej strony jest też linkiem do instalacji.
+  // Aktualizacja: gdy aplikacja wraca na ekran, service worker pobiera stronę i mówi, czy jest nowsza
+  // wersja niż ta, która działa (znacznik ?v= przy dodaj.js); wtedy pokazujemy „Odśwież”.
+  var LATER_LS = "dodaj.installLater", LATER_MS = 7 * 24 * 3600 * 1000;
   var deferred = null;
-  window.addEventListener("beforeinstallprompt", function (e) {
-    e.preventDefault(); deferred = e;
-    document.getElementById("install").hidden = false;
-  });
-  document.getElementById("install").addEventListener("click", function () {
-    if (!deferred) return;
-    deferred.prompt();
-    deferred.userChoice.then(function () { deferred = null; document.getElementById("install").hidden = true; });
-  });
-  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(function () {});
+  function showInstall() {
+    var box = document.getElementById("pwa");
+    box.textContent = "";
+    if (!deferred || Date.now() - Number(lsGet(LATER_LS) || 0) < LATER_MS) return;
+    box.appendChild(el("div", { class: "d-notice pwa-install" }, [
+      el("span", { text: "Zainstaluj aplikację: ikona na ekranie i „Dodaj prezent” w menu Udostępnij." }),
+      el("button", { type: "button", class: "d-btn d-btn--small", text: "Zainstaluj", onclick: function () {
+        var p = deferred; deferred = null; showInstall(); p.prompt();
+      } }),
+      el("button", { type: "button", class: "link-btn", text: "Później", onclick: function () {
+        lsSet(LATER_LS, String(Date.now())); showInstall();
+      } })
+    ]));
+  }
+  window.addEventListener("beforeinstallprompt", function (e) { e.preventDefault(); deferred = e; showInstall(); });
+  window.addEventListener("appinstalled", function () { deferred = null; showInstall(); });
+
+  var me = document.querySelector('script[src*="dodaj.js"]');
+  var build = me ? me.getAttribute("src") : "";
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("sw.js").catch(function () {});
+    navigator.serviceWorker.addEventListener("message", function (e) {
+      var slot = document.getElementById("update");
+      if (!e.data || e.data.type !== "update-ready" || slot.firstChild) return;
+      slot.appendChild(el("div", { class: "d-toast" }, [
+        el("span", { class: "d-toast__text", text: "Jest nowa wersja aplikacji" }),
+        el("button", { type: "button", class: "d-toast__action", text: "Odśwież", onclick: function () { location.reload(); } })
+      ]));
+    });
+    var check = function () {
+      var c = navigator.serviceWorker.controller;
+      if (c && build.indexOf("?v=") > 0) c.postMessage({ type: "check-update", build: build });
+    };
+    document.addEventListener("visibilitychange", function () { if (document.visibilityState === "visible") check(); });
+    navigator.serviceWorker.ready.then(check);
+  }
 
   window.addEventListener("hashchange", function () { readKeysFromHash(); render(); maybePreview(); });
   readKeysFromHash();
